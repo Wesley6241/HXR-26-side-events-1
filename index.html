@@ -4,12 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HarvardXR 2026 · Side Event</title>
+    <script defer src="public/shared/hxr-header.js"></script>
     <style>
         :root {
-            --bg: #000;
-            --text: rgba(255, 255, 255, 0.92);
-            --muted: rgba(255, 255, 255, 0.65);
-            --accent: rgba(0, 255, 255, 0.9);
+            --bg: #070915;
+            --text: rgba(255, 255, 255, 0.94);
+            --muted: rgba(255, 255, 255, 0.78);
+            --muted-2: rgba(255, 255, 255, 0.62);
+            --panel: rgba(255, 255, 255, 0.14);
+            --panel-2: rgba(255, 255, 255, 0.10);
+            --stroke: rgba(255, 255, 255, 0.22);
+            --shadow: 0px 14px 40px rgba(0, 0, 0, 0.35);
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --max: 1120px;
         }
 
         * { box-sizing: border-box; }
@@ -17,124 +25,365 @@
         html, body {
             height: 100%;
             margin: 0;
-            background: var(--bg);
             color: var(--text);
             font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
         }
 
-        .stage {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            display: grid;
-            place-items: center;
+        body {
+            min-height: 100vh;
+            background: radial-gradient(1200px 680px at 78% 18%, rgba(233, 71, 206, 0.78), rgba(233, 71, 206, 0) 62%),
+                        radial-gradient(980px 560px at 22% 26%, rgba(122, 142, 255, 0.62), rgba(122, 142, 255, 0) 60%),
+                        radial-gradient(900px 520px at 50% 110%, rgba(6, 7, 24, 0), rgba(6, 7, 24, 1) 55%),
+                        linear-gradient(180deg, #1a1544 0%, #090a1b 58%, #060612 100%);
+            overflow-x: hidden;
         }
 
-        /* Fullscreen SVG (16:9 design) */
-        .hero-link {
+        /* Subtle glow wash (matches Figma vibe) */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: -10%;
+            pointer-events: none;
+            background:
+                radial-gradient(900px 540px at 70% 15%, rgba(255, 96, 220, 0.14), rgba(255, 96, 220, 0) 70%),
+                radial-gradient(1000px 620px at 25% 22%, rgba(132, 153, 255, 0.14), rgba(132, 153, 255, 0) 70%);
+            filter: blur(28px);
+            opacity: 0.95;
+            z-index: -1;
+        }
+
+        a { color: inherit; }
+
+        .skip {
             position: absolute;
-            inset: 0;
-            display: grid;
-            place-items: center;
-            text-decoration: none;
-            color: inherit;
+            left: -9999px;
+            top: 8px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.24);
+        }
+        .skip:focus { left: 12px; z-index: 50; }
+
+        .shell {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main {
+            flex: 1;
+            width: 100%;
+            padding: 44px 20px 28px;
+        }
+
+        .wrap {
+            max-width: var(--max);
+            margin: 0 auto;
         }
 
         .hero {
-            width: min(100vw, calc(100vh * (2752 / 1536)));
-            height: min(100vh, calc(100vw * (1536 / 2752)));
-            max-width: 100vw;
-            max-height: 100vh;
-            object-fit: contain;
-            display: block;
-            user-select: none;
-            -webkit-user-drag: none;
+            text-align: center;
+            margin-top: 4px;
         }
 
-        /* Bottom CTA overlay (still only goes to gallery) */
-        .cta-wrap {
+        .hero__kicker {
+            margin: 0 0 10px 0;
+            font-size: clamp(12px, 1.35vw, 16px);
+            color: rgba(255,255,255,0.86);
+        }
+
+        .hero__title {
+            margin: 0;
+            font-size: clamp(24px, 3.4vw, 42px);
+            line-height: 1.08;
+            font-weight: 800;
+            letter-spacing: 0.01em;
+        }
+
+        .hero__lead {
+            margin: 8px auto 0;
+            max-width: 720px;
+            font-size: clamp(13px, 1.5vw, 18px);
+            line-height: 1.45;
+            color: var(--muted);
+        }
+
+        .card {
+            margin-top: 22px;
+            border-radius: 15px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.12));
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.22) inset, 0px 8px 24px rgba(0,0,0,0.30);
+            overflow: hidden;
+        }
+
+        .card__copy {
+            padding: clamp(18px, 3vw, 34px) clamp(16px, 3vw, 34px) 16px;
+            text-align: center;
+        }
+
+        .card__eyebrow {
+            margin: 0;
+            font-size: clamp(14px, 1.9vw, 22px);
+            color: rgba(255,255,255,0.90);
+        }
+
+        .card__title {
+            margin: 6px 0 0;
+            font-size: clamp(22px, 3vw, 40px);
+            line-height: 1.15;
+            font-weight: 850;
+        }
+
+        .card__desc {
+            margin: 10px auto 0;
+            max-width: 780px;
+            font-size: clamp(13px, 1.55vw, 18px);
+            line-height: 1.45;
+            color: var(--muted);
+        }
+
+        .carousel {
+            position: relative;
+            padding: 14px 14px 16px;
+        }
+
+        .strip {
+            display: grid;
+            grid-auto-flow: column;
+            grid-auto-columns: minmax(220px, 1fr);
+            gap: 14px;
+            overflow-x: auto;
+            overscroll-behavior-x: contain;
+            scroll-snap-type: x mandatory;
+            padding-bottom: 4px;
+        }
+
+        .strip::-webkit-scrollbar { height: 10px; }
+        .strip::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 999px; }
+        .strip::-webkit-scrollbar-track { background: rgba(0,0,0,0.18); border-radius: 999px; }
+
+        .shot {
+            scroll-snap-align: start;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border-radius: 6px;
+            overflow: hidden;
+            background: rgba(0,0,0,0.22);
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.14) inset;
+        }
+
+        .shot img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            filter: saturate(0.98) contrast(1.02);
+        }
+
+        .arrow {
             position: absolute;
-            left: 0;
-            right: 0;
-            bottom: 18px;
+            top: 50%;
+            transform: translateY(12px);
+            width: 38px;
+            height: 38px;
+            border-radius: 999px;
+            background: rgba(0,0,0,0.35);
+            border: 1px solid rgba(255,255,255,0.26);
+            backdrop-filter: blur(10px);
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            transition: transform 140ms ease, background 140ms ease;
+        }
+
+        .arrow:hover { background: rgba(0,0,0,0.55); transform: translateY(12px) scale(1.05); }
+        .arrow:focus-visible { outline: 2px solid rgba(255,255,255,0.7); outline-offset: 3px; }
+
+        .arrow--left { left: 10px; }
+        .arrow--right { right: 10px; }
+
+        .tri {
+            width: 0;
+            height: 0;
+            border-top: 7px solid transparent;
+            border-bottom: 7px solid transparent;
+        }
+        .arrow--left .tri {
+            border-right: 10px solid rgba(255,255,255,0.92);
+            margin-left: -2px;
+        }
+        .arrow--right .tri {
+            border-left: 10px solid rgba(255,255,255,0.92);
+            margin-right: -2px;
+        }
+
+        .cta-row {
             display: flex;
             justify-content: center;
-            padding: 0 16px;
-            pointer-events: none;
+            padding: 0 0 18px;
         }
 
         .cta {
-            pointer-events: auto;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
-            height: 44px;
+            height: 46px;
             padding: 0 16px;
             border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.20);
+            background: rgba(0, 0, 0, 0.35);
             backdrop-filter: blur(10px);
             color: var(--text);
             text-decoration: none;
-            font-weight: 650;
+            font-weight: 750;
             letter-spacing: 0.02em;
             transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
         }
 
         .cta:hover {
             transform: translateY(-2px);
-            border-color: rgba(0, 255, 255, 0.45);
-            box-shadow: 0 12px 28px rgba(0, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.42);
+            box-shadow: 0 10px 26px rgba(0,0,0,0.28);
         }
 
         .cta:focus-visible {
-            outline: 2px solid rgba(0, 255, 255, 0.55);
+            outline: 2px solid rgba(255, 255, 255, 0.65);
             outline-offset: 3px;
         }
 
-        .hint {
-            margin-left: 12px;
-            color: var(--muted);
-            font-size: 12px;
-            letter-spacing: 0.02em;
-            user-select: none;
+        .footer {
+            padding: 18px 20px 22px;
         }
 
-        @media (max-width: 520px) {
-            .hint { display: none; }
+        .footer__wrap {
+            max-width: var(--max);
+            margin: 0 auto;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .mark {
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            font-size: clamp(34px, 5.6vw, 58px);
+            line-height: 1;
+        }
+
+        .footnote {
+            text-align: right;
+            font-weight: 700;
+            font-size: clamp(12px, 1.4vw, 16px);
+            line-height: 1.1;
+            color: rgba(255,255,255,0.92);
+        }
+
+        .footnote span {
+            display: block;
+            font-weight: 700;
+            color: rgba(255,255,255,0.78);
+        }
+
+        @media (max-width: 640px) {
+            .main { padding-top: 26px; }
+            .arrow { display: none; }
         }
     </style>
 </head>
 <body>
-    <main class="stage" aria-label="Side Event Info Page">
-        <!-- Entire page is a single destination: gallery.html -->
-        <a class="hero-link" href="gallery.html" aria-label="Enter Gallery">
-            <img
-                class="hero"
-                src="Side%20Event%20-%20Info%20Page.svg"
-                alt="Side Event Info Page"
-                draggable="false"
-            />
-        </a>
+    <a class="skip" href="#main">Skip to content</a>
 
-        <div class="cta-wrap" aria-hidden="false">
-            <a class="cta" href="gallery.html">
-                Enter Gallery <span style="color: var(--accent);">→</span>
-                <span class="hint">Click / Press Enter</span>
-            </a>
-        </div>
-    </main>
+    <div class="shell" aria-label="Side Event Home Page">
+        <hxr-header current="home"></hxr-header>
+
+        <main id="main" class="main">
+            <div class="wrap">
+                <section class="hero" aria-label="Event introduction">
+                    <p class="hero__kicker">Harvard XR 2026 Side Event Series</p>
+                    <h1 class="hero__title">XR Campus Mapping — Real vs AI-generated</h1>
+                    <p class="hero__lead">
+                        Explore how real-world scanning and AI-generated models reshape
+                        the way we experience and map Harvard’s campus.
+                    </p>
+                </section>
+
+                <section class="card" aria-label="Featured Workshop">
+                    <div class="card__copy">
+                        <p class="card__eyebrow">Featured Workshop</p>
+                        <h2 class="card__title">My Everyday Harvard — XR Mapping Lab</h2>
+                        <p class="card__desc">
+                            A hands-on XR mapping workshop where students capture everyday campus spaces
+                            using 3D scanning and AI generation.
+                        </p>
+                    </div>
+
+                    <div class="carousel" aria-label="Workshop photos">
+                        <button class="arrow arrow--left" type="button" aria-label="Scroll left">
+                            <span class="tri" aria-hidden="true"></span>
+                        </button>
+
+                        <div class="strip" id="photoStrip">
+                            <!-- Using existing project thumbs as placeholders (swap with event photos anytime). -->
+                            <div class="shot"><img src="public/assets/thumbs/BBLDM.jpg" alt="Workshop photo 1"></div>
+                            <div class="shot"><img src="public/assets/thumbs/A5X07.jpg" alt="Workshop photo 2"></div>
+                            <div class="shot"><img src="public/assets/thumbs/30T74.jpg" alt="Workshop photo 3"></div>
+                            <div class="shot"><img src="public/assets/thumbs/BBLDM.jpg" alt="Workshop photo 4"></div>
+                            <div class="shot"><img src="public/assets/thumbs/A5X07.jpg" alt="Workshop photo 5"></div>
+                        </div>
+
+                        <button class="arrow arrow--right" type="button" aria-label="Scroll right">
+                            <span class="tri" aria-hidden="true"></span>
+                        </button>
+                    </div>
+
+                    <div class="cta-row">
+                        <a class="cta" href="gallery.html" aria-label="Enter Mapping (Gallery)">
+                            Enter Mapping <span aria-hidden="true">→</span>
+                        </a>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <footer class="footer" aria-label="Footer">
+            <div class="footer__wrap">
+                <div class="mark" aria-label="HXR">HXR</div>
+                <div class="footnote">
+                    HXR Conference 2026
+                    <span>XR +: From Pixel to Voxel</span>
+                </div>
+            </div>
+        </footer>
+    </div>
 
     <script>
-        // Keyboard-friendly: Enter/Space jumps to Gallery (still only one destination).
+        // Keyboard-friendly: Enter/Space jumps to Mapping unless focused in a control.
         window.addEventListener('keydown', (e) => {
             const key = (e && e.key) ? e.key.toLowerCase() : '';
+            const target = e && e.target ? e.target : null;
+            const isTyping = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+            if (isTyping) return;
             if (key === 'enter' || key === ' ') {
                 window.location.href = 'gallery.html';
             }
         });
+
+        // Simple strip scrolling (matches arrow affordance in the Figma).
+        const strip = document.getElementById('photoStrip');
+        const left = document.querySelector('.arrow--left');
+        const right = document.querySelector('.arrow--right');
+
+        function scrollByAmount(dir) {
+            if (!strip) return;
+            const amount = Math.max(240, Math.floor(strip.clientWidth * 0.72));
+            strip.scrollBy({ left: dir * amount, behavior: 'smooth' });
+        }
+
+        left?.addEventListener('click', () => scrollByAmount(-1));
+        right?.addEventListener('click', () => scrollByAmount(1));
     </script>
 </body>
 </html>

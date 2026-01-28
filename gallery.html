@@ -6,11 +6,18 @@
     <title>Pixel → Voxel - Gallery Mode</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="public/shared/hxr-header.js"></script>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #000508;
+            background:
+                radial-gradient(900px 520px at 70% 25%, rgba(62, 170, 192, 0.35), rgba(62, 170, 192, 0) 60%),
+                radial-gradient(820px 520px at 32% 78%, rgba(122, 76, 186, 0.32), rgba(122, 76, 186, 0) 62%),
+                linear-gradient(135deg, #05030a 0%, #15112a 38%, #1a2c4f 66%, #1a4b59 100%),
+                repeating-linear-gradient(135deg, rgba(255,255,255,0.028) 0 2px, rgba(0,0,0,0) 2px 7px);
+            background-attachment: fixed;
+            background-size: cover;
             color: #ffffff;
             font-family: 'Inter', sans-serif;
         }
@@ -33,7 +40,7 @@
             top: 50%; left: 50%;
             transform: translate(-50%, -50%) scale(0.9);
             background: rgba(5, 10, 15, 0.95);
-            border: 1px solid rgba(0, 255, 255, 0.3);
+            border: 1px solid rgba(243, 152, 192, 0.3);
             padding: 2rem;
             border-radius: 4px;
             opacity: 0;
@@ -52,15 +59,15 @@
             position: absolute;
             top: 1rem; right: 1rem;
             cursor: pointer;
-            color: rgba(0, 255, 255, 0.5);
+            color: rgba(243, 152, 192, 0.55);
             transition: color 0.3s;
         }
         .close-btn:hover {
-            color: rgba(0, 255, 255, 1);
+            color: rgba(243, 152, 192, 1);
         }
         .mode-toggle {
             position: absolute;
-            top: 20px;
+            top: calc(20px + var(--hxr-header-safe-top, 0px));
             right: 20px;
             z-index: 1000;
             background: rgba(0, 0, 0, 0.7);
@@ -75,11 +82,11 @@
         }
         .mode-toggle:hover {
             background: rgba(0, 0, 0, 0.9);
-            border-color: rgba(0, 255, 255, 0.5);
+            border-color: rgba(243, 152, 192, 0.5);
         }
         .voice-search {
             position: absolute;
-            top: 20px;
+            top: calc(20px + var(--hxr-header-safe-top, 0px));
             left: 50%;
             transform: translateX(-50%);
             z-index: 1000;
@@ -93,7 +100,7 @@
             align-items: center;
         }
         .voice-btn {
-            background: #00ffff;
+            background: #F398C0;
             color: #000;
             border: none;
             padding: 8px 16px;
@@ -103,7 +110,8 @@
             transition: all 0.3s;
         }
         .voice-btn:hover {
-            background: #00cccc;
+            background: #F398C0;
+            filter: brightness(0.92);
         }
         .voice-btn.listening {
             background: #ff4444;
@@ -127,6 +135,7 @@
     </style>
 </head>
 <body>
+    <hxr-header current="mapping" mode="overlay"></hxr-header>
     <button class="mode-toggle" onclick="goToViewer()">Enter Viewer Mode</button>
 
     <div class="voice-search">
@@ -137,19 +146,19 @@
     <div class="overlay"></div>
 
     <div class="ui-panel">
-        <h1 class="text-xl font-bold tracking-[0.5em] uppercase text-cyan-500">Pixel → Voxel</h1>
-        <p class="text-[9px] text-cyan-800 mt-2 tracking-widest uppercase font-mono">Gallery Mode // Spherical Nebula</p>
+        <h1 class="text-xl font-bold tracking-[0.5em] uppercase text-[#F398C0]">Pixel → Voxel</h1>
+        <p class="text-[9px] text-[#F398C0]/70 mt-2 tracking-widest uppercase font-mono">Gallery Mode // Spherical Nebula</p>
     </div>
 
     <div id="infoCard" class="info-card font-mono">
         <div class="close-btn" onclick="hideDetails()">[ CLOSE ]</div>
-        <h2 class="text-lg font-bold mb-1 text-cyan-400" id="cardTitle">NODE_DATA</h2>
-        <p class="text-[9px] text-cyan-900 mb-4 tracking-tighter" id="cardMeta">ENCODED_BLOCK_STATUS_OK</p>
-        <div class="w-full aspect-square bg-cyan-950/20 rounded mb-4 overflow-hidden border border-cyan-500/30">
+        <h2 class="text-lg font-bold mb-1 text-[#F398C0]" id="cardTitle">NODE_DATA</h2>
+        <p class="text-[9px] text-[#F398C0]/80 mb-4 tracking-tighter" id="cardMeta">ENCODED_BLOCK_STATUS_OK</p>
+        <div class="w-full aspect-square bg-[#F398C0]/10 rounded mb-4 overflow-hidden border border-[#F398C0]/30">
             <img id="cardImg" src="" alt="Detail" class="w-full h-full object-cover">
         </div>
-        <p class="text-[10px] text-cyan-100/60 leading-relaxed uppercase mb-4" id="cardDesc">Neural mapping completed.</p>
-        <button onclick="goToViewer()" class="bg-cyan-500 text-black font-bold py-2 px-4 rounded w-full">Enter Viewer Mode</button>
+        <p class="text-[10px] text-[#F398C0]/70 leading-relaxed uppercase mb-4" id="cardDesc">Neural mapping completed.</p>
+        <button onclick="goToViewer()" class="bg-[#F398C0] text-black font-bold py-2 px-4 rounded w-full">Enter Viewer Mode</button>
     </div>
 
     <script>
@@ -238,9 +247,10 @@
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.z = 60;
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0x000000, 0);
             document.body.appendChild(renderer.domElement);
 
             scene.add(sphereGroup);
@@ -250,7 +260,7 @@
             // Wireframe sphere
             const gridSphereGeo = new THREE.SphereGeometry(25 - 0.5, 32, 32);
             const gridSphereMat = new THREE.MeshBasicMaterial({
-                color: 0x00ffff,
+                color: 0xF398C0,
                 wireframe: true,
                 transparent: true,
                 opacity: 0.12
@@ -261,7 +271,7 @@
             // Point shell sphere
             const dotGeo = new THREE.SphereGeometry(25 - 0.4, 64, 32);
             const dotMat = new THREE.PointsMaterial({
-                color: 0x00ffff,
+                color: 0xF398C0,
                 size: 0.12,
                 transparent: true,
                 opacity: 0.25
@@ -317,9 +327,16 @@
             });
 
             window.addEventListener('resize', onWindowResize);
-            window.addEventListener('mousemove', onMouseMove);
-            window.addEventListener('mousedown', onMouseDown);
-            window.addEventListener('wheel', onWheel);
+
+            // Use pointer events so both mouse + touch work
+            window.addEventListener('pointermove', onPointerMove, { passive: true });
+            window.addEventListener('pointerdown', onPointerDown);
+
+            // Fallback for older browsers
+            window.addEventListener('touchmove', onPointerMove, { passive: true });
+            window.addEventListener('touchstart', onPointerDown, { passive: true });
+
+            window.addEventListener('wheel', onWheel, { passive: true });
 
             animate();
         }
@@ -333,6 +350,24 @@
         function onMouseMove(event) {
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        // Mobile-friendly pointer/touch support
+        function setPointerFromEvent(event) {
+            const e = (event && event.touches && event.touches.length) ? event.touches[0] : event;
+            if (!e) return;
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function onPointerMove(event) {
+            setPointerFromEvent(event);
+        }
+
+        function onPointerDown(event) {
+            // Ensure raycast uses the tap position on mobile
+            setPointerFromEvent(event);
+            onMouseDown();
         }
 
         function onWheel(event) {
@@ -374,8 +409,9 @@
             requestAnimationFrame(animate);
             const time = clock.getElapsedTime();
 
-            sphereGroup.rotation.y += 0.0012;
-            sphereGroup.rotation.z += 0.0004;
+            // Slower auto-rotation
+            sphereGroup.rotation.y += 0.0006;
+            sphereGroup.rotation.z += 0.0002;
 
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(imagePlanes);
