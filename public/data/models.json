@@ -1,0 +1,28 @@
+{
+  "models": [
+    {
+      "id": "A5X07",
+      "title": "tree",
+      "author": "wenxin",
+      "glbPath": "/assets/models/A5X07.glb",
+      "thumbPath": "/assets/thumbs/A5X07.jpg",
+      "tags": []
+    },
+    {
+      "id": "30T74",
+      "title": "CatSushi",
+      "author": "zoe",
+      "glbPath": "/assets/models/30T74.glb",
+      "thumbPath": "/assets/thumbs/30T74.jpg",
+      "tags": []
+    },
+    {
+      "id": "BBLDM",
+      "title": "SuperCatSushi",
+      "author": "zoe",
+      "glbPath": "/assets/models/BBLDM.glb",
+      "thumbPath": "/assets/thumbs/BBLDM.jpg",
+      "tags": []
+    }
+  ]
+}

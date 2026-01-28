@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HarvardXR 2026 · Side Event</title>
+    <style>
+        :root {
+            --bg: #000;
+            --text: rgba(255, 255, 255, 0.92);
+            --muted: rgba(255, 255, 255, 0.65);
+            --accent: rgba(0, 255, 255, 0.9);
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+
+        .stage {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: grid;
+            place-items: center;
+        }
+
+        /* Fullscreen SVG (16:9 design) */
+        .hero-link {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .hero {
+            width: min(100vw, calc(100vh * (2752 / 1536)));
+            height: min(100vh, calc(100vw * (1536 / 2752)));
+            max-width: 100vw;
+            max-height: 100vh;
+            object-fit: contain;
+            display: block;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        /* Bottom CTA overlay (still only goes to gallery) */
+        .cta-wrap {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 18px;
+            display: flex;
+            justify-content: center;
+            padding: 0 16px;
+            pointer-events: none;
+        }
+
+        .cta {
+            pointer-events: auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            height: 44px;
+            padding: 0 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(10px);
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 650;
+            letter-spacing: 0.02em;
+            transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+        }
+
+        .cta:hover {
+            transform: translateY(-2px);
+            border-color: rgba(0, 255, 255, 0.45);
+            box-shadow: 0 12px 28px rgba(0, 255, 255, 0.14);
+        }
+
+        .cta:focus-visible {
+            outline: 2px solid rgba(0, 255, 255, 0.55);
+            outline-offset: 3px;
+        }
+
+        .hint {
+            margin-left: 12px;
+            color: var(--muted);
+            font-size: 12px;
+            letter-spacing: 0.02em;
+            user-select: none;
+        }
+
+        @media (max-width: 520px) {
+            .hint { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <main class="stage" aria-label="Side Event Info Page">
+        <!-- Entire page is a single destination: gallery.html -->
+        <a class="hero-link" href="gallery.html" aria-label="Enter Gallery">
+            <img
+                class="hero"
+                src="Side%20Event%20-%20Info%20Page.svg"
+                alt="Side Event Info Page"
+                draggable="false"
+            />
+        </a>
+
+        <div class="cta-wrap" aria-hidden="false">
+            <a class="cta" href="gallery.html">
+                Enter Gallery <span style="color: var(--accent);">→</span>
+                <span class="hint">Click / Press Enter</span>
+            </a>
+        </div>
+    </main>
+
+    <script>
+        // Keyboard-friendly: Enter/Space jumps to Gallery (still only one destination).
+        window.addEventListener('keydown', (e) => {
+            const key = (e && e.key) ? e.key.toLowerCase() : '';
+            if (key === 'enter' || key === ' ') {
+                window.location.href = 'gallery.html';
+            }
+        });
+    </script>
+</body>
+</html>

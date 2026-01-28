@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel → Voxel - Viewer Mode</title>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js",
+                "three/examples/jsm/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js"
+            }
+        }
+    </script>
+    <style>
+        body { 
+            margin: 0; 
+            background: #000508; 
+            overflow: hidden; 
+            font-family: sans-serif; 
+        }
+        #ui {
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            color: #fff;
+            background: rgba(0, 0, 0, 0.7); 
+            backdrop-filter: blur(10px);
+            padding: 20px; 
+            border-radius: 12px; 
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            z-index: 10; 
+            width: 280px;
+        }
+        .control-group { 
+            margin-bottom: 15px; 
+        }
+        .control-group label { 
+            display: block; 
+            font-size: 12px; 
+            margin-bottom: 5px; 
+            color: #aaa; 
+        }
+        input[type="range"] { 
+            width: 100%; 
+            cursor: pointer; 
+        }
+        input[type="radio"] {
+            margin-right: 8px;
+        }
+        button {
+            width: 100%; 
+            padding: 8px; 
+            background: #444; 
+            color: white;
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            transition: 0.3s;
+            margin-top: 5px;
+        }
+        button:hover { 
+            background: #666; 
+        }
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .back-btn:hover {
+            background: rgba(0, 0, 0, 0.9);
+            border-color: rgba(0, 255, 255, 0.5);
+        }
+        #status { 
+            font-size: 12px; 
+            margin-top: 10px; 
+            color: #0f0; 
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="goToGallery()">Back to Gallery</button>
+
+    <div id="ui">
+        <h2 style="margin: 0 0 15px 0; font-size: 16px;">Point Cloud Control Panel</h2>
+        
+        <div class="control-group">
+            <label>
+                <input type="radio" name="viewMode" value="mesh" checked> Mesh Mode
+            </label>
+            <label>
+                <input type="radio" name="viewMode" value="voxel"> Voxel Mode
+            </label>
+        </div>
+
+        <div class="control-group">
+            <label id="label-size">Point Size: 25</label>
+            <input type="range" id="input-size" min="1" max="100" value="25">
+        </div>
+
+        <div class="control-group">
+            <label id="label-dispersion">Dispersion: 0.2</label>
+            <input type="range" id="input-dispersion" min="0" max="2" step="0.01" value="0.2">
+        </div>
+
+        <div class="control-group">
+            <label id="label-density">Sampling Density: 8</label>
+            <input type="range" id="input-density" min="1" max="30" value="8">
+        </div>
+
+        <div class="control-group">
+            <label id="label-brightness">Color Intensity: 1.0</label>
+            <input type="range" id="input-brightness" min="0.1" max="3.0" step="0.1" value="1.0">
+        </div>
+
+        <button id="btn-refresh">Regenerate Samples</button>
+        
+        <div class="control-group" style="margin-top: 15px;">
+            <label id="label-zoom">Zoom Level: 1.0x</label>
+            <input type="range" id="input-zoom" min="0.2" max="3.0" step="0.1" value="1.0">
+        </div>
+        
+        <div id="status">Ready</div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+
+        // --- Shaders ---
+        const vertexShader = `
+            varying vec3 vColor;
+            uniform float uTime;
+            uniform float uPointSize;
+            uniform float uBrightness;
+            uniform float uDispersion;
+           
+            float hash(float n) { return fract(sin(n) * 43758.5453123); }
+
+            void main() {
+                vColor = color * uBrightness;
+                vec3 pos = position;
+               
+                float uniqueID = position.x + position.y + position.z;
+                float offsetX = sin(uTime * 1.1 + uniqueID * 10.0) * hash(uniqueID);
+                float offsetY = cos(uTime * 1.3 + uniqueID * 11.0) * hash(uniqueID + 1.0);
+                float offsetZ = sin(uTime * 1.2 + uniqueID * 12.0) * hash(uniqueID + 2.0);
+               
+                pos.x += offsetX * uDispersion;
+                pos.y += offsetY * uDispersion;
+                pos.z += offsetZ * uDispersion;
+                pos.y += sin(uTime * 0.5 + position.x * 2.0) * 0.05;
+               
+                vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                gl_PointSize = uPointSize / -mvPosition.z;
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `;
+
+        const fragmentShader = `
+            varying vec3 vColor;
+           
+            void main() {
+                vec2 c = gl_PointCoord - vec2(0.5);
+                float d = dot(c, c);
+                float alpha = exp(-d * 10.0);
+                if (alpha < 0.05) discard;
+                gl_FragColor = vec4(vColor, alpha);
+            }
+        `;
+
+        // --- Initialization ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000508);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(3, 3, 5);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        // Color management for glTF (three r160)
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        renderer.physicallyCorrectLights = true;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // --- Lighting (required for PBR materials/textures in glTF) ---
+        const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+        scene.add(ambient);
+
+        const hemi = new THREE.HemisphereLight(0xaadfff, 0x080b10, 0.45);
+        scene.add(hemi);
+
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.25);
+        keyLight.position.set(4, 6, 3);
+        scene.add(keyLight);
+
+        const fillLight = new THREE.DirectionalLight(0x66ccff, 0.35);
+        fillLight.position.set(-4, 2, -3);
+        scene.add(fillLight);
+
+        let currentModel = null;
+        let pointCloud = null;
+        let meshModel = null;
+        let config = {
+            size: 25,
+            density: 8,
+            brightness: 1.0,
+            dispersion: 0.2,
+            viewMode: 'mesh',
+            zoomLevel: 1.0
+        };
+
+        // --- Helper Functions ---
+        function fixPath(path) {
+            if (path.startsWith('/assets/')) {
+                return './public' + path;
+            }
+            return path;
+        }
+
+        function wrap01(t) {
+            return ((t % 1) + 1) % 1;
+        }
+
+        // Cache texture -> sampler(u, v) => {r,g,b} in 0..1, or null if not ready
+        const textureSamplers = new Map();
+        function getTextureSampler(texture) {
+            if (!texture) return null;
+            if (textureSamplers.has(texture.uuid)) return textureSamplers.get(texture.uuid);
+
+            const img = texture.image;
+            if (!img) {
+                textureSamplers.set(texture.uuid, null);
+                return null;
+            }
+
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width || img.videoWidth || 0;
+                canvas.height = img.height || img.videoHeight || 0;
+                if (!canvas.width || !canvas.height) {
+                    textureSamplers.set(texture.uuid, null);
+                    return null;
+                }
+
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                const w = canvas.width;
+                const h = canvas.height;
+
+                const sampler = (u, v) => {
+                    // glTF UV origin is top-left? In practice, sample with v flipped for canvas.
+                    const uu = wrap01(u);
+                    const vv = wrap01(v);
+                    const x = Math.min(w - 1, Math.max(0, Math.floor(uu * w)));
+                    const y = Math.min(h - 1, Math.max(0, Math.floor((1 - vv) * h)));
+                    const idx = (y * w + x) * 4;
+                    return {
+                        r: data[idx] / 255,
+                        g: data[idx + 1] / 255,
+                        b: data[idx + 2] / 255
+                    };
+                };
+
+                textureSamplers.set(texture.uuid, sampler);
+                return sampler;
+            } catch (e) {
+                console.warn('Texture sampling unavailable:', e);
+                textureSamplers.set(texture.uuid, null);
+                return null;
+            }
+        }
+
+        function randomBarycentric() {
+            let r1 = Math.random(), r2 = Math.random();
+            if (r1 + r2 > 1) { r1 = 1 - r1; r2 = 1 - r2; }
+            const w0 = 1 - r1 - r2, w1 = r1, w2 = r2;
+            return { w0, w1, w2 };
+        }
+
+        function generatePointCloud() {
+            if (!currentModel) return;
+           
+            if (pointCloud) {
+                scene.remove(pointCloud);
+                pointCloud.geometry.dispose();
+                pointCloud.material.dispose();
+            }
+
+            const allPoints = [];
+            const allColors = [];
+
+            currentModel.traverse((child) => {
+                if (child.isMesh) {
+                    const geo = child.geometry;
+                    const posAttr = geo.attributes.position;
+                    const colAttr = geo.attributes.color;
+                    const uvAttr = geo.attributes.uv;
+                    const index = geo.index;
+
+                    const material = Array.isArray(child.material) ? child.material[0] : child.material;
+                    const baseCol = (material && material.color) ? material.color : new THREE.Color(0xffffff);
+                    const texSampler = (material && material.map && uvAttr) ? getTextureSampler(material.map) : null;
+
+                    const process = (i1, i2, i3) => {
+                        const a = new THREE.Vector3().fromBufferAttribute(posAttr, i1);
+                        const b = new THREE.Vector3().fromBufferAttribute(posAttr, i2);
+                        const c = new THREE.Vector3().fromBufferAttribute(posAttr, i3);
+                        const uva = uvAttr ? new THREE.Vector2().fromBufferAttribute(uvAttr, i1) : null;
+                        const uvb = uvAttr ? new THREE.Vector2().fromBufferAttribute(uvAttr, i2) : null;
+                        const uvc = uvAttr ? new THREE.Vector2().fromBufferAttribute(uvAttr, i3) : null;
+
+                        for (let j = 0; j < config.density; j++) {
+                            const { w0, w1, w2 } = randomBarycentric();
+                            const p = new THREE.Vector3()
+                                .addScaledVector(a, w0)
+                                .addScaledVector(b, w1)
+                                .addScaledVector(c, w2);
+                            p.applyMatrix4(child.matrixWorld);
+                            allPoints.push(p.x, p.y, p.z);
+
+                            // Prefer texture sampling if available; otherwise fall back to vertex colors; otherwise base color.
+                            if (texSampler && uva && uvb && uvc) {
+                                const u = uva.x * w0 + uvb.x * w1 + uvc.x * w2;
+                                const v = uva.y * w0 + uvb.y * w1 + uvc.y * w2;
+                                const ctex = texSampler(u, v);
+                                allColors.push(ctex.r, ctex.g, ctex.b);
+                            } else if (colAttr) {
+                                allColors.push(colAttr.getX(i1), colAttr.getY(i1), colAttr.getZ(i1));
+                            } else {
+                                allColors.push(baseCol.r, baseCol.g, baseCol.b);
+                            }
+                        }
+                    };
+
+                    if (index) {
+                        for (let i = 0; i < index.count; i += 3) {
+                            process(index.getX(i), index.getX(i+1), index.getX(i+2));
+                        }
+                    } else {
+                        for (let i = 0; i < posAttr.count; i += 3) {
+                            process(i, i+1, i+2);
+                        }
+                    }
+                }
+            });
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(allPoints, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(allColors, 3));
+
+            const material = new THREE.ShaderMaterial({
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+                vertexColors: true,
+                uniforms: {
+                    uTime: { value: 0 },
+                    uPointSize: { value: config.size },
+                    uBrightness: { value: config.brightness },
+                    uDispersion: { value: config.dispersion }
+                },
+                vertexShader,
+                fragmentShader
+            });
+
+            pointCloud = new THREE.Points(geometry, material);
+            scene.add(pointCloud);
+            document.getElementById('status').innerText = `Points: ${(allPoints.length / 3).toLocaleString()}`;
+        }
+
+        // --- Load Model ---
+        async function loadModel() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const modelId = urlParams.get('id');
+
+            if (!modelId) {
+                // Load first model if no ID specified
+                try {
+                    const paths = ['./public/data/models.json', 'public/data/models.json', '/public/data/models.json'];
+                    let response;
+                    
+                    for (const path of paths) {
+                        try {
+                            response = await fetch(path);
+                            if (response && response.ok) break;
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+                    
+                    if (response && response.ok) {
+                        const data = await response.json();
+                        const models = data.models || [];
+                        if (models.length > 0) {
+                            loadModelByData(models[0]);
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading models:', error);
+                }
+                
+                document.getElementById('status').innerText = 'Please select a model from the gallery.';
+                return;
+            }
+
+            // Load model by ID
+            try {
+                const paths = ['./public/data/models.json', 'public/data/models.json', '/public/data/models.json'];
+                let response;
+                
+                for (const path of paths) {
+                    try {
+                        response = await fetch(path);
+                        if (response && response.ok) break;
+                    } catch (e) {
+                        continue;
+                    }
+                }
+                
+                if (!response || !response.ok) {
+                    throw new Error('Failed to load models.json');
+                }
+                
+                const data = await response.json();
+                const models = data.models || [];
+                const modelData = models.find(m => m.id === modelId);
+                
+                if (modelData) {
+                    loadModelByData(modelData);
+                } else {
+                    document.getElementById('status').innerText = `No model found with ID ${modelId}`;
+                }
+            } catch (error) {
+                console.error('Error loading model:', error);
+                document.getElementById('status').innerText = 'Load failed: ' + error.message;
+            }
+        }
+
+        function loadModelByData(modelData) {
+            const loader = new GLTFLoader();
+            const glbPath = fixPath(modelData.glbPath);
+
+            loader.load(glbPath, (gltf) => {
+                currentModel = gltf.scene;
+                currentModel.updateMatrixWorld(true);
+
+                // Center and scale model
+                const box = new THREE.Box3().setFromObject(currentModel);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+                currentModel.position.sub(center);
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const scale = 3 / maxDim;
+                currentModel.scale.multiplyScalar(scale);
+                currentModel.updateMatrixWorld(true);
+
+                // Add mesh model
+                if (meshModel) {
+                    scene.remove(meshModel);
+                }
+                meshModel = currentModel.clone();
+                scene.add(meshModel);
+
+                generatePointCloud();
+                
+                // Initialize base camera distance for zoom control
+                const target = controls.target;
+                baseCameraDistance = camera.position.distanceTo(target);
+                
+                // Reset zoom level to 1.0 when new model loads
+                config.zoomLevel = 1.0;
+                document.getElementById('input-zoom').value = '1.0';
+                document.getElementById('label-zoom').innerText = 'Zoom Level: 1.0x';
+                
+                document.getElementById('status').innerText = `Loaded: ${modelData.title} by ${modelData.author}`;
+            }, undefined, (error) => {
+                console.error('Error loading GLB:', error);
+                document.getElementById('status').innerText = 'Load failed: ' + error.message;
+            });
+        }
+
+        // --- UI Events ---
+        document.getElementById('input-size').addEventListener('input', (e) => {
+            config.size = parseFloat(e.target.value);
+            document.getElementById('label-size').innerText = `Point Size: ${config.size}`;
+            if (pointCloud) pointCloud.material.uniforms.uPointSize.value = config.size;
+        });
+
+        document.getElementById('input-dispersion').addEventListener('input', (e) => {
+            config.dispersion = parseFloat(e.target.value);
+            document.getElementById('label-dispersion').innerText = `Dispersion: ${config.dispersion.toFixed(2)}`;
+            if (pointCloud) pointCloud.material.uniforms.uDispersion.value = config.dispersion;
+        });
+
+        document.getElementById('input-density').addEventListener('input', (e) => {
+            config.density = parseInt(e.target.value);
+            document.getElementById('label-density').innerText = `Sampling Density: ${config.density}`;
+        });
+
+        document.getElementById('input-brightness').addEventListener('input', (e) => {
+            config.brightness = parseFloat(e.target.value);
+            document.getElementById('label-brightness').innerText = `Color Intensity: ${config.brightness.toFixed(1)}`;
+            if (pointCloud) pointCloud.material.uniforms.uBrightness.value = config.brightness;
+        });
+
+        document.getElementById('btn-refresh').addEventListener('click', () => {
+            document.getElementById('status').innerText = "Recomputing...";
+            setTimeout(generatePointCloud, 50);
+        });
+
+        document.querySelectorAll('input[name="viewMode"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                config.viewMode = e.target.value;
+                if (pointCloud) pointCloud.visible = (config.viewMode === 'voxel');
+                if (meshModel) meshModel.visible = (config.viewMode === 'mesh');
+            });
+        });
+
+        // Zoom control functionality
+        let baseCameraDistance = null; // Store initial camera distance
+        
+        function updateZoom() {
+            if (baseCameraDistance === null) return;
+            
+            const target = controls.target;
+            const currentPos = camera.position.clone();
+            
+            // Calculate direction from target to current camera position
+            const direction = new THREE.Vector3().subVectors(currentPos, target);
+            if (direction.length() < 0.001) {
+                // Fallback: use camera's forward direction if too close
+                camera.getWorldDirection(direction);
+                direction.negate();
+            }
+            direction.normalize();
+            
+            // Calculate new distance based on zoom level (1.0 = base distance, lower = closer, higher = farther)
+            const newDistance = baseCameraDistance / config.zoomLevel;
+            camera.position.copy(target).add(direction.multiplyScalar(newDistance));
+            controls.update();
+        }
+        
+        document.getElementById('input-zoom').addEventListener('input', (e) => {
+            config.zoomLevel = parseFloat(e.target.value);
+            document.getElementById('label-zoom').innerText = `Zoom Level: ${config.zoomLevel.toFixed(1)}x`;
+            updateZoom();
+        });
+
+        // --- Animation ---
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsed = clock.elapsedTime;
+
+            if (pointCloud && config.viewMode === 'voxel') {
+                pointCloud.material.uniforms.uTime.value = elapsed;
+                pointCloud.rotation.y += 0.0008;
+            }
+
+            if (meshModel && config.viewMode === 'mesh') {
+                meshModel.rotation.y += 0.0008;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Global function for navigation
+        window.goToGallery = function() {
+            window.location.href = 'gallery.html';
+        };
+
+        // Load model on page load
+        loadModel();
+    </script>
+</body>
+</html>

@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel → Voxel - Gallery Mode</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000508;
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+        }
+        canvas { display: block; }
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            background: radial-gradient(circle at center, transparent 20%, rgba(0, 0, 0, 0.9) 100%);
+        }
+        .ui-panel {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .info-card {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(5, 10, 15, 0.95);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            padding: 2rem;
+            border-radius: 4px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+            max-width: 400px;
+            backdrop-filter: blur(20px);
+            z-index: 100;
+            pointer-events: auto;
+        }
+        .info-card.active {
+            opacity: 1; visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        .close-btn {
+            position: absolute;
+            top: 1rem; right: 1rem;
+            cursor: pointer;
+            color: rgba(0, 255, 255, 0.5);
+            transition: color 0.3s;
+        }
+        .close-btn:hover {
+            color: rgba(0, 255, 255, 1);
+        }
+        .mode-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .mode-toggle:hover {
+            background: rgba(0, 0, 0, 0.9);
+            border-color: rgba(0, 255, 255, 0.5);
+        }
+        .voice-search {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .voice-btn {
+            background: #00ffff;
+            color: #000;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .voice-btn:hover {
+            background: #00cccc;
+        }
+        .voice-btn.listening {
+            background: #ff4444;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .search-input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            width: 200px;
+        }
+        .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <button class="mode-toggle" onclick="goToViewer()">Enter Viewer Mode</button>
+
+    <div class="voice-search">
+        <input type="text" class="search-input" id="searchInput" placeholder="Search by author or title...">
+        <button class="voice-btn" id="voiceBtn">🎤 Voice</button>
+    </div>
+
+    <div class="overlay"></div>
+
+    <div class="ui-panel">
+        <h1 class="text-xl font-bold tracking-[0.5em] uppercase text-cyan-500">Pixel → Voxel</h1>
+        <p class="text-[9px] text-cyan-800 mt-2 tracking-widest uppercase font-mono">Gallery Mode // Spherical Nebula</p>
+    </div>
+
+    <div id="infoCard" class="info-card font-mono">
+        <div class="close-btn" onclick="hideDetails()">[ CLOSE ]</div>
+        <h2 class="text-lg font-bold mb-1 text-cyan-400" id="cardTitle">NODE_DATA</h2>
+        <p class="text-[9px] text-cyan-900 mb-4 tracking-tighter" id="cardMeta">ENCODED_BLOCK_STATUS_OK</p>
+        <div class="w-full aspect-square bg-cyan-950/20 rounded mb-4 overflow-hidden border border-cyan-500/30">
+            <img id="cardImg" src="" alt="Detail" class="w-full h-full object-cover">
+        </div>
+        <p class="text-[10px] text-cyan-100/60 leading-relaxed uppercase mb-4" id="cardDesc">Neural mapping completed.</p>
+        <button onclick="goToViewer()" class="bg-cyan-500 text-black font-bold py-2 px-4 rounded w-full">Enter Viewer Mode</button>
+    </div>
+
+    <script>
+        let scene, camera, renderer, raycaster, mouse;
+        const imagePlanes = [];
+        const clock = new THREE.Clock();
+        const sphereGroup = new THREE.Group();
+        let models = [];
+        let currentModelData = null;
+
+        // Pixelation + grayscale/color mix shader
+        const pixelShader = {
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform sampler2D tDiffuse;
+                uniform float pixelSize;
+                uniform float colorMix;
+                uniform float opacity;
+                varying vec2 vUv;
+               
+                void main() {
+                    vec2 d = vec2(1.0 / 800.0, 1.0 / 600.0) * pixelSize;
+                    vec2 uv = vec2(floor(vUv.x / d.x) * d.x, floor(vUv.y / d.y) * d.y);
+                    vec4 texel = texture2D(tDiffuse, uv);
+                   
+                    float gray = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
+                    float contrastGray = smoothstep(0.1, 0.9, gray);
+                    float brightGray = contrastGray * 1.35;
+                    vec3 grayColor = vec3(brightGray);
+                    vec3 finalColor = mix(grayColor, texel.rgb, colorMix);
+                   
+                    gl_FragColor = vec4(finalColor, opacity);
+                }
+            `
+        };
+
+        function fixPath(path) {
+            if (path.startsWith('/assets/')) {
+                return './public' + path;
+            }
+            return path;
+        }
+
+        async function loadModels() {
+            try {
+                const paths = ['./public/data/models.json', 'public/data/models.json', '/public/data/models.json'];
+                let response;
+                
+                for (const path of paths) {
+                    try {
+                        response = await fetch(path);
+                        if (response && response.ok) break;
+                    } catch (e) {
+                        continue;
+                    }
+                }
+                
+                if (!response || !response.ok) {
+                    throw new Error('Failed to load models.json');
+                }
+                
+                const data = await response.json();
+                models = data.models || [];
+                
+                if (models.length === 0) {
+                    console.warn('No models found');
+                    return;
+                }
+                
+                init();
+            } catch (error) {
+                console.error('Error loading models:', error);
+            }
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x000508, 0.025);
+
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 60;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+
+            scene.add(sphereGroup);
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // Wireframe sphere
+            const gridSphereGeo = new THREE.SphereGeometry(25 - 0.5, 32, 32);
+            const gridSphereMat = new THREE.MeshBasicMaterial({
+                color: 0x00ffff,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.12
+            });
+            const gridSphere = new THREE.Mesh(gridSphereGeo, gridSphereMat);
+            sphereGroup.add(gridSphere);
+
+            // Point shell sphere
+            const dotGeo = new THREE.SphereGeometry(25 - 0.4, 64, 32);
+            const dotMat = new THREE.PointsMaterial({
+                color: 0x00ffff,
+                size: 0.12,
+                transparent: true,
+                opacity: 0.25
+            });
+            const dots = new THREE.Points(dotGeo, dotMat);
+            sphereGroup.add(dots);
+
+            // Background particles
+            const starGeo = new THREE.BufferGeometry();
+            const starPos = new Float32Array(2500 * 3);
+            for(let i=0; i<2500*3; i++) starPos[i] = (Math.random() - 0.5) * 350;
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x004444, size: 0.12 })));
+
+            const loader = new THREE.TextureLoader();
+            const radius = 25;
+
+            models.forEach((model, i) => {
+                const phi = Math.acos(-1 + (2 * i) / models.length);
+                const theta = Math.sqrt(models.length * Math.PI) * phi;
+
+                const x = radius * Math.sin(phi) * Math.cos(theta);
+                const y = radius * Math.sin(phi) * Math.sin(theta);
+                const z = radius * Math.cos(phi);
+
+                const geometry = new THREE.PlaneGeometry(5.2, 3.9);
+                const thumbPath = fixPath(model.thumbPath);
+                const material = new THREE.ShaderMaterial({
+                    uniforms: {
+                        tDiffuse: { value: loader.load(thumbPath) },
+                        pixelSize: { value: 45.0 },
+                        colorMix: { value: 0.0 },
+                        opacity: { value: 0.55 }
+                    },
+                    vertexShader: pixelShader.vertexShader,
+                    fragmentShader: pixelShader.fragmentShader,
+                    transparent: true,
+                    side: THREE.DoubleSide
+                });
+
+                const plane = new THREE.Mesh(geometry, material);
+                plane.position.set(x, y, z);
+                plane.lookAt(0, 0, 0);
+               
+                plane.userData = {
+                    id: model.id,
+                    modelData: model,
+                    originalPos: plane.position.clone()
+                };
+               
+                imagePlanes.push(plane);
+                sphereGroup.add(plane);
+            });
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mousedown', onMouseDown);
+            window.addEventListener('wheel', onWheel);
+
+            animate();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function onWheel(event) {
+            camera.position.z += event.deltaY * 0.05;
+            camera.position.z = Math.max(8, Math.min(camera.position.z, 150));
+        }
+
+        function onMouseDown() {
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(imagePlanes);
+            if (intersects.length > 0) {
+                showDetails(intersects[0].object.userData.modelData);
+            }
+        }
+
+        function showDetails(modelData) {
+            currentModelData = modelData;
+            const card = document.getElementById('infoCard');
+            document.getElementById('cardTitle').innerText = modelData.title;
+            document.getElementById('cardMeta').innerText = `by ${modelData.author} | ID: ${modelData.id}`;
+            document.getElementById('cardImg').src = fixPath(modelData.thumbPath);
+            document.getElementById('cardDesc').innerText = `Click the button to enter viewer mode and experience the full 3D model.`;
+            card.classList.add('active');
+        }
+
+        function hideDetails() {
+            document.getElementById('infoCard').classList.remove('active');
+        }
+
+        function goToViewer() {
+            if (currentModelData) {
+                window.location.href = `viewer.html?id=${currentModelData.id}`;
+            } else {
+                window.location.href = 'viewer.html';
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            sphereGroup.rotation.y += 0.0012;
+            sphereGroup.rotation.z += 0.0004;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(imagePlanes);
+            const hoveredObj = intersects.length > 0 ? intersects[0].object : null;
+
+            imagePlanes.forEach((plane) => {
+                const offset = Math.sin(time * 0.9 + plane.userData.id.charCodeAt(0)) * 0.45;
+                const dir = plane.position.clone().normalize();
+                plane.position.copy(plane.userData.originalPos).add(dir.multiplyScalar(offset));
+
+                if (plane === hoveredObj) {
+                    plane.material.uniforms.pixelSize.value = THREE.MathUtils.lerp(plane.material.uniforms.pixelSize.value, 1.0, 0.12);
+                    plane.material.uniforms.colorMix.value = THREE.MathUtils.lerp(plane.material.uniforms.colorMix.value, 1.0, 0.12);
+                    plane.material.uniforms.opacity.value = THREE.MathUtils.lerp(plane.material.uniforms.opacity.value, 1.0, 0.12);
+                    plane.scale.lerp(new THREE.Vector3(1.2, 1.2, 1.2), 0.12);
+                } else {
+                    plane.material.uniforms.pixelSize.value = THREE.MathUtils.lerp(plane.material.uniforms.pixelSize.value, 45.0, 0.05);
+                    plane.material.uniforms.colorMix.value = THREE.MathUtils.lerp(plane.material.uniforms.colorMix.value, 0.0, 0.05);
+                    plane.material.uniforms.opacity.value = THREE.MathUtils.lerp(plane.material.uniforms.opacity.value, 0.55, 0.05);
+                    plane.scale.lerp(new THREE.Vector3(1, 1, 1), 0.08);
+                }
+            });
+
+            camera.lookAt(0, 0, 0);
+            renderer.render(scene, camera);
+        }
+
+        // Voice Search
+        let recognition = null;
+        let isListening = false;
+
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'en-US';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript.toLowerCase();
+                searchByAuthor(transcript);
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                document.getElementById('voiceBtn').classList.remove('listening');
+            };
+        }
+
+        document.getElementById('voiceBtn').addEventListener('click', () => {
+            if (!recognition) {
+                alert('Your browser does not support speech recognition.');
+                return;
+            }
+
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
+                isListening = true;
+                document.getElementById('voiceBtn').classList.add('listening');
+            }
+        });
+
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchByAuthor(e.target.value);
+            }
+        });
+
+        function searchByAuthor(query) {
+            const found = models.find(m => 
+                m.author.toLowerCase().includes(query.toLowerCase()) || 
+                m.title.toLowerCase().includes(query.toLowerCase())
+            );
+
+            if (found) {
+                const index = models.findIndex(m => m.id === found.id);
+                const phi = Math.acos(-1 + (2 * index) / models.length);
+                const theta = Math.sqrt(models.length * Math.PI) * phi;
+                
+                const targetX = 25 * Math.sin(phi) * Math.cos(theta);
+                const targetY = 25 * Math.sin(phi) * Math.sin(theta);
+                const targetZ = 25 * Math.cos(phi);
+
+                const animateToTarget = () => {
+                    camera.position.x += (targetX - camera.position.x) * 0.05;
+                    camera.position.y += (targetY - camera.position.y) * 0.05;
+                    camera.position.z += (targetZ + 30 - camera.position.z) * 0.05;
+                    
+                    if (Math.abs(camera.position.x - targetX) > 0.1) {
+                        requestAnimationFrame(animateToTarget);
+                    }
+                };
+                animateToTarget();
+
+                showDetails(found);
+            } else {
+                alert('No matching model found.');
+            }
+        }
+
+        window.onload = loadModels;
+    </script>
+</body>
+</html>
