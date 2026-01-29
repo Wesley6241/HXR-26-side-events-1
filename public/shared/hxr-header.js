@@ -9,8 +9,8 @@ class HxrHeader extends HTMLElement {
 
     // If used as an overlay header, expose a safe top offset for other UI on the page.
     if (mode === 'overlay') {
-      // 22px top padding + ~72px bar height + ~10px breathing room
-      document.documentElement.style.setProperty('--hxr-header-safe-top', '104px');
+      // 11px top padding + ~34px bar height + ~5px breathing room
+      document.documentElement.style.setProperty('--hxr-header-safe-top', '50px');
     }
 
     const shadow = this.attachShadow({ mode: 'open' });
@@ -20,24 +20,21 @@ class HxrHeader extends HTMLElement {
 
     const pos = mode === 'overlay'
       ? 'position: fixed; inset: 0 0 auto 0; z-index: 2000;'
-      : 'position: relative;';
+      : 'position: sticky; top: 0; z-index: 100;';
 
     shadow.innerHTML = `
       <style>
         :host { display: block; ${pos} }
         *, *::before, *::after { box-sizing: border-box; }
 
-        .topbar { padding: 22px 20px 0; }
+        .topbar { padding: 11px 0 0; }
         .nav {
-          max-width: 1280px;
-          margin: 0 auto;
-          height: 72px;
-          padding: 12px 30px;
-          border-radius: 16px;
-          background: linear-gradient(90deg, rgba(255,255,255,0.16), rgba(255,255,255,0.10));
-          box-shadow:
-            0 0 0 2px rgba(255,255,255,0.22) inset,
-            0px 10px 30px rgba(0,0,0,0.25);
+          width: 100%;
+          height: 34px;
+          padding: 6px 15px;
+          border: 1px solid rgba(0,0,0,0.2);
+          background: linear-gradient(90deg, rgba(0,0,0,0.16), rgba(0,0,0,0.10));
+          box-shadow: 0px 10px 30px rgba(0,0,0,0.25);
           backdrop-filter: blur(14px);
           display: flex;
           align-items: center;
@@ -51,10 +48,10 @@ class HxrHeader extends HTMLElement {
           font-family: "Satoshi", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
           font-weight: 800;
           letter-spacing: 0.01em;
-          font-size: clamp(18px, 2.2vw, 28px);
-          padding: 10px 12px;
-          border-radius: 12px;
-          transition: background 140ms ease, color 140ms ease;
+          font-size: clamp(9px, 1.1vw, 14px);
+          padding: 5px 6px;
+          border: 1px solid transparent;
+          transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
         }
 
         a:hover { color: rgba(255,255,255,1); background: rgba(0,0,0,0.10); }
@@ -62,8 +59,8 @@ class HxrHeader extends HTMLElement {
         a:focus-visible { outline: 2px solid rgba(255,255,255,0.65); outline-offset: 3px; }
 
         @media (max-width: 640px) {
-          .topbar { padding-top: 16px; }
-          .nav { height: 62px; padding: 10px 14px; }
+          .topbar { padding-top: 8px; }
+          .nav { height: 31px; padding: 5px 8px; }
         }
       </style>
 

@@ -5,17 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pixel → Voxel - Gallery Mode</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="public/shared/hxr-header.js"></script>
     <style>
         body {
             margin: 0;
             overflow: hidden;
             background:
-                radial-gradient(900px 520px at 70% 25%, rgba(62, 170, 192, 0.35), rgba(62, 170, 192, 0) 60%),
-                radial-gradient(820px 520px at 32% 78%, rgba(122, 76, 186, 0.32), rgba(122, 76, 186, 0) 62%),
-                linear-gradient(135deg, #05030a 0%, #15112a 38%, #1a2c4f 66%, #1a4b59 100%),
-                repeating-linear-gradient(135deg, rgba(255,255,255,0.028) 0 2px, rgba(0,0,0,0) 2px 7px);
+                radial-gradient(900px 520px at 70% 25%, rgba(101, 155, 166, 0.35), rgba(101, 155, 166, 0) 60%),
+                radial-gradient(820px 520px at 32% 78%, rgba(112, 89, 144, 0.32), rgba(112, 89, 144, 0) 62%),
+                linear-gradient(135deg, #08070c 0%, #18161f 38%, #1e2638 66%, #1e3540 100%),
+                repeating-linear-gradient(135deg, rgba(0,0,0,0.06) 0 2px, rgba(0,0,0,0) 2px 7px);
             background-attachment: fixed;
             background-size: cover;
             color: #ffffff;
@@ -40,9 +39,9 @@
             top: 50%; left: 50%;
             transform: translate(-50%, -50%) scale(0.9);
             background: rgba(5, 10, 15, 0.95);
-            border: 1px solid rgba(243, 152, 192, 0.3);
+            border: 1px solid rgba(34, 211, 238, 0.12);
             padding: 2rem;
-            border-radius: 4px;
+            box-shadow: 0px 12px 32px rgba(0,0,0,0.35);
             opacity: 0;
             visibility: hidden;
             transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
@@ -59,11 +58,11 @@
             position: absolute;
             top: 1rem; right: 1rem;
             cursor: pointer;
-            color: rgba(243, 152, 192, 0.55);
+            color: rgba(34, 211, 238, 0.55);
             transition: color 0.3s;
         }
         .close-btn:hover {
-            color: rgba(243, 152, 192, 1);
+            color: rgba(34, 211, 238, 1);
         }
         .mode-toggle {
             position: absolute;
@@ -73,8 +72,7 @@
             background: rgba(0, 0, 0, 0.7);
             backdrop-filter: blur(10px);
             padding: 12px 24px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(0, 0, 0, 0.2);
             color: #fff;
             cursor: pointer;
             font-size: 14px;
@@ -82,35 +80,32 @@
         }
         .mode-toggle:hover {
             background: rgba(0, 0, 0, 0.9);
-            border-color: rgba(243, 152, 192, 0.5);
+            border-color: rgba(34, 211, 238, 0.25);
         }
         .voice-search {
             position: absolute;
-            top: calc(20px + var(--hxr-header-safe-top, 0px));
-            left: 50%;
-            transform: translateX(-50%);
+            bottom: 40px;
+            right: 40px;
             z-index: 1000;
             background: rgba(0, 0, 0, 0.7);
             backdrop-filter: blur(10px);
             padding: 12px 24px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(0, 0, 0, 0.2);
             display: flex;
             gap: 10px;
             align-items: center;
         }
         .voice-btn {
-            background: #F398C0;
+            background: #22D3EE;
             color: #000;
-            border: none;
+            border: 1px solid rgba(0,0,0,0.08);
             padding: 8px 16px;
-            border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
             transition: all 0.3s;
         }
         .voice-btn:hover {
-            background: #F398C0;
+            background: #22D3EE;
             filter: brightness(0.92);
         }
         .voice-btn.listening {
@@ -122,43 +117,100 @@
             50% { opacity: 0.5; }
         }
         .search-input {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(0, 0, 0, 0.2);
             color: #fff;
             padding: 8px 12px;
-            border-radius: 4px;
             width: 200px;
         }
         .search-input::placeholder {
             color: rgba(255, 255, 255, 0.5);
         }
+        /* Info card & UI panel (replaces Tailwind utilities) */
+        .ui-panel__title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 0.5em;
+            text-transform: uppercase;
+            color: #22D3EE;
+        }
+        .ui-panel__subtitle {
+            font-size: 7px;
+            color: rgba(34, 211, 238, 0.7);
+            margin-top: 0.5rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            font-family: ui-monospace, monospace;
+        }
+        .info-card {
+            font-family: ui-monospace, monospace;
+        }
+        .info-card__title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+            color: #22D3EE;
+        }
+        .info-card__meta {
+            font-size: 7px;
+            color: rgba(34, 211, 238, 0.8);
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+        .info-card__img-wrap {
+            width: 100%;
+            aspect-ratio: 1;
+            margin-bottom: 1rem;
+            overflow: hidden;
+            background: rgba(34, 211, 238, 0.1);
+            border: 1px solid rgba(34, 211, 238, 0.2);
+        }
+        .info-card__img-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .info-card__desc {
+            font-size: 8px;
+            color: rgba(34, 211, 238, 0.7);
+            line-height: 1.625;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+        .info-card__btn {
+            width: 100%;
+            padding: 0.5rem 1rem;
+            background: #22D3EE;
+            color: #000;
+            font-weight: 700;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <hxr-header current="mapping" mode="overlay"></hxr-header>
-    <button class="mode-toggle" onclick="goToViewer()">Enter Viewer Mode</button>
 
     <div class="voice-search">
         <input type="text" class="search-input" id="searchInput" placeholder="Search by author or title...">
-        <button class="voice-btn" id="voiceBtn">🎤 Voice</button>
+        <button class="voice-btn" id="voiceBtn">Voice</button>
     </div>
 
     <div class="overlay"></div>
-
     <div class="ui-panel">
-        <h1 class="text-xl font-bold tracking-[0.5em] uppercase text-[#F398C0]">Pixel → Voxel</h1>
-        <p class="text-[9px] text-[#F398C0]/70 mt-2 tracking-widest uppercase font-mono">Gallery Mode // Spherical Nebula</p>
+        <h1 class="ui-panel__title">Pixel → Voxel</h1>
+        <p class="ui-panel__subtitle">Gallery Mode // Spherical Nebula</p>
     </div>
 
-    <div id="infoCard" class="info-card font-mono">
+    <div id="infoCard" class="info-card">
         <div class="close-btn" onclick="hideDetails()">[ CLOSE ]</div>
-        <h2 class="text-lg font-bold mb-1 text-[#F398C0]" id="cardTitle">NODE_DATA</h2>
-        <p class="text-[9px] text-[#F398C0]/80 mb-4 tracking-tighter" id="cardMeta">ENCODED_BLOCK_STATUS_OK</p>
-        <div class="w-full aspect-square bg-[#F398C0]/10 rounded mb-4 overflow-hidden border border-[#F398C0]/30">
-            <img id="cardImg" src="" alt="Detail" class="w-full h-full object-cover">
+        <h2 class="info-card__title" id="cardTitle">NODE_DATA</h2>
+        <p class="info-card__meta" id="cardMeta">ENCODED_BLOCK_STATUS_OK</p>
+        <div class="info-card__img-wrap">
+            <img id="cardImg" src="" alt="Detail">
         </div>
-        <p class="text-[10px] text-[#F398C0]/70 leading-relaxed uppercase mb-4" id="cardDesc">Neural mapping completed.</p>
-        <button onclick="goToViewer()" class="bg-[#F398C0] text-black font-bold py-2 px-4 rounded w-full">Enter Viewer Mode</button>
+        <p class="info-card__desc" id="cardDesc">Neural mapping completed.</p>
+        <button onclick="goToViewer()" class="info-card__btn">Enter Viewer Mode</button>
     </div>
 
     <script>
@@ -245,7 +297,7 @@
             scene.fog = new THREE.FogExp2(0x000508, 0.025);
 
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 60;
+            camera.position.z = 60 / 2.4; // 2.4x zoom
 
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -260,7 +312,7 @@
             // Wireframe sphere
             const gridSphereGeo = new THREE.SphereGeometry(25 - 0.5, 32, 32);
             const gridSphereMat = new THREE.MeshBasicMaterial({
-                color: 0xF398C0,
+                color: 0x22D3EE,
                 wireframe: true,
                 transparent: true,
                 opacity: 0.12
@@ -271,7 +323,7 @@
             // Point shell sphere
             const dotGeo = new THREE.SphereGeometry(25 - 0.4, 64, 32);
             const dotMat = new THREE.PointsMaterial({
-                color: 0xF398C0,
+                color: 0x22D3EE,
                 size: 0.12,
                 transparent: true,
                 opacity: 0.25

@@ -11,12 +11,10 @@
             --text: rgba(255, 255, 255, 0.94);
             --muted: rgba(255, 255, 255, 0.78);
             --muted-2: rgba(255, 255, 255, 0.62);
-            --panel: rgba(255, 255, 255, 0.14);
-            --panel-2: rgba(255, 255, 255, 0.10);
-            --stroke: rgba(255, 255, 255, 0.22);
+            --panel: rgba(0, 0, 0, 0.14);
+            --panel-2: rgba(0, 0, 0, 0.10);
+            --stroke: rgba(0, 0, 0, 0.22);
             --shadow: 0px 14px 40px rgba(0, 0, 0, 0.35);
-            --radius-lg: 16px;
-            --radius-md: 12px;
             --max: 1120px;
         }
 
@@ -53,15 +51,15 @@
         }
 
         a { color: inherit; }
+        p { font-size: 0.8em; }
 
         .skip {
             position: absolute;
             left: -9999px;
             top: 8px;
             padding: 10px 12px;
-            border-radius: 10px;
+            border: 1px solid rgba(0,0,0,0.2);
             background: rgba(0,0,0,0.6);
-            border: 1px solid rgba(255,255,255,0.24);
         }
         .skip:focus { left: 12px; z-index: 50; }
 
@@ -69,33 +67,42 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            align-items: stretch;
         }
 
         .main {
             flex: 1;
             width: 100%;
-            padding: 44px 20px 28px;
+            padding: 44px 15px 28px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
         }
 
         .wrap {
             max-width: var(--max);
             margin: 0 auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
         }
 
         .hero {
             text-align: center;
             margin-top: 4px;
+            flex-shrink: 0;
         }
 
         .hero__kicker {
             margin: 0 0 10px 0;
-            font-size: clamp(12px, 1.35vw, 16px);
+            font-size: clamp(10px, 1.08vw, 13px);
             color: rgba(255,255,255,0.86);
         }
 
         .hero__title {
             margin: 0;
-            font-size: clamp(24px, 3.4vw, 42px);
+            font-size: clamp(18px, 2.4vw, 30px);
             line-height: 1.08;
             font-weight: 800;
             letter-spacing: 0.01em;
@@ -104,27 +111,32 @@
         .hero__lead {
             margin: 8px auto 0;
             max-width: 720px;
-            font-size: clamp(13px, 1.5vw, 18px);
+            font-size: clamp(10px, 1.2vw, 14px);
             line-height: 1.45;
             color: var(--muted);
         }
 
         .card {
             margin-top: 22px;
-            border-radius: 15px;
-            background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.12));
-            box-shadow: 0 0 0 2px rgba(255,255,255,0.22) inset, 0px 8px 24px rgba(0,0,0,0.30);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            border: 1px solid rgba(0,0,0,0.2);
+            background: linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.12));
+            box-shadow: 0px 8px 24px rgba(0,0,0,0.30);
             overflow: hidden;
         }
 
         .card__copy {
             padding: clamp(18px, 3vw, 34px) clamp(16px, 3vw, 34px) 16px;
             text-align: center;
+            flex-shrink: 0;
         }
 
         .card__eyebrow {
             margin: 0;
-            font-size: clamp(14px, 1.9vw, 22px);
+            font-size: clamp(11px, 1.52vw, 18px);
             color: rgba(255,255,255,0.90);
         }
 
@@ -138,7 +150,7 @@
         .card__desc {
             margin: 10px auto 0;
             max-width: 780px;
-            font-size: clamp(13px, 1.55vw, 18px);
+            font-size: clamp(10px, 1.24vw, 14px);
             line-height: 1.45;
             color: var(--muted);
         }
@@ -146,31 +158,39 @@
         .carousel {
             position: relative;
             padding: 14px 14px 16px;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
         }
 
         .strip {
             display: grid;
             grid-auto-flow: column;
             grid-auto-columns: minmax(220px, 1fr);
+            grid-auto-rows: minmax(140px, 1fr);
             gap: 14px;
             overflow-x: auto;
             overscroll-behavior-x: contain;
             scroll-snap-type: x mandatory;
             padding-bottom: 4px;
+            flex: 1;
+            min-height: 0;
+            align-content: stretch;
         }
 
         .strip::-webkit-scrollbar { height: 10px; }
-        .strip::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 999px; }
-        .strip::-webkit-scrollbar-track { background: rgba(0,0,0,0.18); border-radius: 999px; }
+        .strip::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.3); }
+        .strip::-webkit-scrollbar-track { background: rgba(0,0,0,0.18); }
 
         .shot {
             scroll-snap-align: start;
             width: 100%;
-            aspect-ratio: 16 / 9;
-            border-radius: 6px;
+            height: 100%;
+            min-height: 140px;
+            border: 1px solid rgba(0,0,0,0.2);
             overflow: hidden;
             background: rgba(0,0,0,0.22);
-            box-shadow: 0 0 0 1px rgba(255,255,255,0.14) inset;
         }
 
         .shot img {
@@ -187,9 +207,8 @@
             transform: translateY(12px);
             width: 38px;
             height: 38px;
-            border-radius: 999px;
             background: rgba(0,0,0,0.35);
-            border: 1px solid rgba(255,255,255,0.26);
+            border: 1px solid rgba(0,0,0,0.2);
             backdrop-filter: blur(10px);
             display: grid;
             place-items: center;
@@ -222,6 +241,7 @@
             display: flex;
             justify-content: center;
             padding: 0 0 18px;
+            flex-shrink: 0;
         }
 
         .cta {
@@ -231,8 +251,7 @@
             gap: 10px;
             height: 46px;
             padding: 0 16px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.20);
+            border: 1px solid rgba(0, 0, 0, 0.2);
             background: rgba(0, 0, 0, 0.35);
             backdrop-filter: blur(10px);
             color: var(--text);
@@ -244,7 +263,7 @@
 
         .cta:hover {
             transform: translateY(-2px);
-            border-color: rgba(255, 255, 255, 0.42);
+            border-color: rgba(0, 0, 0, 0.3);
             box-shadow: 0 10px 26px rgba(0,0,0,0.28);
         }
 
@@ -254,12 +273,15 @@
         }
 
         .footer {
-            padding: 18px 20px 22px;
+            padding: 18px 15px 22px;
+            position: sticky;
+            bottom: 0;
         }
 
         .footer__wrap {
             max-width: var(--max);
             margin: 0 auto;
+            width: 100%;
             display: flex;
             align-items: flex-end;
             justify-content: space-between;
@@ -276,7 +298,7 @@
         .footnote {
             text-align: right;
             font-weight: 700;
-            font-size: clamp(12px, 1.4vw, 16px);
+            font-size: clamp(10px, 1.12vw, 13px);
             line-height: 1.1;
             color: rgba(255,255,255,0.92);
         }
@@ -303,7 +325,7 @@
             <div class="wrap">
                 <section class="hero" aria-label="Event introduction">
                     <p class="hero__kicker">Harvard XR 2026 Side Event Series</p>
-                    <h1 class="hero__title">XR Campus Mapping — Real vs AI-generated</h1>
+                    <h3 class="hero__title">XR Campus Mapping — Real vs AI-generated</h3>
                     <p class="hero__lead">
                         Explore how real-world scanning and AI-generated models reshape
                         the way we experience and map Harvard’s campus.
@@ -312,7 +334,6 @@
 
                 <section class="card" aria-label="Featured Workshop">
                     <div class="card__copy">
-                        <p class="card__eyebrow">Featured Workshop</p>
                         <h2 class="card__title">My Everyday Harvard — XR Mapping Lab</h2>
                         <p class="card__desc">
                             A hands-on XR mapping workshop where students capture everyday campus spaces
