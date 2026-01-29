@@ -309,16 +309,30 @@
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2();
 
-            // Wireframe sphere
+            // Wireframe sphere (glow)
             const gridSphereGeo = new THREE.SphereGeometry(25 - 0.5, 32, 32);
             const gridSphereMat = new THREE.MeshBasicMaterial({
                 color: 0x22D3EE,
                 wireframe: true,
                 transparent: true,
-                opacity: 0.12
+                opacity: 0.18,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
             });
             const gridSphere = new THREE.Mesh(gridSphereGeo, gridSphereMat);
             sphereGroup.add(gridSphere);
+            // Glow halo (slightly larger, softer)
+            const glowGeo = new THREE.SphereGeometry(25 - 0.3, 32, 32);
+            const glowMat = new THREE.MeshBasicMaterial({
+                color: 0x22D3EE,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.06,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const glowSphere = new THREE.Mesh(glowGeo, glowMat);
+            sphereGroup.add(glowSphere);
 
             // Point shell sphere
             const dotGeo = new THREE.SphereGeometry(25 - 0.4, 64, 32);
@@ -383,10 +397,12 @@
             // Use pointer events so both mouse + touch work
             window.addEventListener('pointermove', onPointerMove, { passive: true });
             window.addEventListener('pointerdown', onPointerDown);
+            window.addEventListener('pointerup', onPointerUp);
 
             // Fallback for older browsers
-            window.addEventListener('touchmove', onPointerMove, { passive: true });
-            window.addEventListener('touchstart', onPointerDown, { passive: true });
+            window.addEventListener('touchmove', onTouchMove, { passive: true });
+            window.addEventListener('touchstart', onTouchStart, { passive: true });
+            window.addEventListener('touchend', onTouchEnd, { passive: false });
 
             window.addEventListener('wheel', onWheel, { passive: true });
 
@@ -405,6 +421,13 @@
         }
 
         // Mobile-friendly pointer/touch support
+        let touchStartX = 0, touchStartY = 0;
+        let touchStartRotY = 0, touchStartRotZ = 0;
+        let touchStartDist = 0;
+        let touchStartZ = 0;
+        let isDragging = false;
+        let isTouching = false;
+
         function setPointerFromEvent(event) {
             const e = (event && event.touches && event.touches.length) ? event.touches[0] : event;
             if (!e) return;
@@ -417,9 +440,58 @@
         }
 
         function onPointerDown(event) {
-            // Ensure raycast uses the tap position on mobile
             setPointerFromEvent(event);
-            onMouseDown();
+            if (!event.touches) onMouseDown();
+        }
+
+        function onPointerUp(event) {
+            if (!event.touches) isDragging = false;
+        }
+
+        function touchDist(touches) {
+            if (!touches || touches.length < 2) return 0;
+            const a = touches[0], b = touches[1];
+            return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+        }
+
+        function onTouchStart(event) {
+            isTouching = true;
+            touchStartX = event.touches[0].clientX;
+            touchStartY = event.touches[0].clientY;
+            touchStartRotY = sphereGroup.rotation.y;
+            touchStartRotZ = sphereGroup.rotation.z;
+            touchStartDist = touchDist(event.touches);
+            touchStartZ = camera.position.z;
+            isDragging = false;
+            setPointerFromEvent(event);
+        }
+
+        function onTouchMove(event) {
+            const d = touchDist(event.touches);
+            if (d > 0 && touchStartDist > 0) {
+                const scale = touchStartDist / d;
+                camera.position.z = Math.max(8, Math.min(150, touchStartZ * scale));
+            } else if (event.touches.length === 1) {
+                const dx = event.touches[0].clientX - touchStartX;
+                const dy = event.touches[0].clientY - touchStartY;
+                if (Math.abs(dx) > 5 || Math.abs(dy) > 5) isDragging = true;
+                sphereGroup.rotation.y = touchStartRotY + dx * 0.01;
+                sphereGroup.rotation.z = touchStartRotZ + dy * 0.005;
+            }
+            setPointerFromEvent(event);
+        }
+
+        function onTouchEnd(event) {
+            isTouching = false;
+            if (!isDragging && event.changedTouches && event.changedTouches[0]) {
+                mouse.x = (event.changedTouches[0].clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.changedTouches[0].clientY / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(imagePlanes);
+                if (intersects.length > 0) {
+                    showDetails(intersects[0].object.userData.modelData);
+                }
+            }
         }
 
         function onWheel(event) {
@@ -461,9 +533,11 @@
             requestAnimationFrame(animate);
             const time = clock.getElapsedTime();
 
-            // Slower auto-rotation
-            sphereGroup.rotation.y += 0.0006;
-            sphereGroup.rotation.z += 0.0002;
+            // Slower auto-rotation (pause during touch drag)
+            if (!isTouching) {
+                sphereGroup.rotation.y += 0.0006;
+                sphereGroup.rotation.z += 0.0002;
+            }
 
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(imagePlanes);
