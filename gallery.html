@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Pixel → Voxel - Gallery Mode</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script defer src="public/shared/hxr-header.js"></script>
@@ -185,6 +185,40 @@
             font-weight: 700;
             border: 1px solid rgba(0, 0, 0, 0.06);
             cursor: pointer;
+        }
+        @media (max-width: 768px) {
+            .ui-panel {
+                bottom: calc(20px + env(safe-area-inset-bottom));
+                left: 16px;
+            }
+            .ui-panel__title { font-size: 0.9rem; letter-spacing: 0.3em; }
+            .ui-panel__subtitle { font-size: 6px; }
+            .mode-toggle {
+                top: calc(12px + var(--hxr-header-safe-top, 0px));
+                right: 12px;
+                padding: 8px 14px;
+                font-size: 12px;
+            }
+            .voice-search {
+                bottom: calc(20px + env(safe-area-inset-bottom));
+                right: 16px;
+                padding: 8px 12px;
+                gap: 8px;
+            }
+            .search-input { width: 140px; padding: 6px 10px; font-size: 13px; }
+            .voice-btn { padding: 6px 12px; font-size: 12px; }
+            .info-card {
+                max-width: calc(100vw - 32px);
+                padding: 1.25rem;
+                transform: translate(-50%, -50%) scale(0.95);
+            }
+            .info-card.active { transform: translate(-50%, -50%) scale(1); }
+            .info-card__title { font-size: 1rem; }
+            .info-card__meta { font-size: 6px; margin-bottom: 0.75rem; }
+            .info-card__img-wrap { margin-bottom: 0.75rem; }
+            .info-card__desc { font-size: 7px; margin-bottom: 0.75rem; }
+            .info-card__btn { padding: 10px 1rem; font-size: 13px; }
+            .close-btn { top: 0.75rem; right: 0.75rem; font-size: 11px; }
         }
     </style>
 </head>
