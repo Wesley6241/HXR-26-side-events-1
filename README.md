@@ -76,7 +76,7 @@ venv\Scripts\python.exe -m pip install -r requirements.txt
 
 Put the model file and its thumbnail into the `incoming/` folder:
 
-- **Model file**: `.glb`, ≤ 50MB
+- **Model file**: `.glb` or `.ply`, ≤ 50MB (viewer supports both GLB and PLY)
 - **Thumbnail**: `.jpg` / `.png` / `.jpeg`, ≤ 4MB
 
 ### 2. File naming convention
@@ -167,10 +167,21 @@ Structure of `models.json`:
       "glbPath": "/assets/models/UTF91.glb",
       "thumbPath": "/assets/thumbs/UTF91.jpg",
       "tags": []
+    },
+    {
+      "id": "PLY01",
+      "title": "Point Cloud",
+      "author": "Author",
+      "plyPath": "/assets/models/PLY01.ply",
+      "thumbPath": "/assets/thumbs/PLY01.jpg",
+      "tags": []
     }
   ]
 }
 ```
+
+- **glbPath**: path to GLB/glTF model (required if no plyPath).
+- **plyPath**: optional path to PLY model; viewer supports both mesh and point-cloud PLY.
 
 ## Features
 

@@ -165,20 +165,17 @@
             flex-direction: column;
         }
 
+        /* Grid: multiple rows, each cell height max 3:4 (width:height = 4:3) */
         .strip {
             display: grid;
-            grid-auto-flow: column;
-            grid-auto-columns: minmax(220px, 1fr);
-            grid-auto-rows: minmax(140px, 1fr);
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            grid-auto-rows: minmax(0, auto);
             gap: 14px;
-            overflow-x: auto;
-            overscroll-behavior-x: contain;
-            scroll-snap-type: x mandatory;
-            touch-action: pan-x;
+            overflow: auto;
             padding-bottom: 4px;
             flex: 1;
             min-height: 0;
-            align-content: stretch;
+            align-content: start;
         }
 
         .strip::-webkit-scrollbar { height: 10px; }
@@ -186,10 +183,8 @@
         .strip::-webkit-scrollbar-track { background: rgba(0,0,0,0.18); }
 
         .shot {
-            scroll-snap-align: start;
-            width: 100%;
-            height: 100%;
-            min-height: 140px;
+            aspect-ratio: 4 / 3;
+            min-height: 0;
             border: 1px solid rgba(0,0,0,0.2);
             overflow: hidden;
             background: rgba(0,0,0,0.22);
@@ -325,11 +320,9 @@
             .card__desc { font-size: 11px; margin-top: 8px; }
             .carousel { padding: 10px 8px 12px; }
             .strip {
-                grid-auto-columns: minmax(160px, 1fr);
-                grid-auto-rows: minmax(100px, 1fr);
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
                 gap: 10px;
             }
-            .shot { min-height: 100px; }
             .cta-row { padding: 0 0 14px; }
             .cta { height: 42px; padding: 0 14px; font-size: 14px; }
             .footer { padding: 14px 12px calc(18px + env(safe-area-inset-bottom)); }
@@ -375,12 +368,7 @@
                         </button>
 
                         <div class="strip" id="photoStrip">
-                            <!-- Placeholder photos from picsum.photos (campus/architecture themed) -->
-                            <div class="shot"><img src="https://picsum.photos/id/10/400/300" alt="Workshop photo 1"></div>
-                            <div class="shot"><img src="https://picsum.photos/id/11/400/300" alt="Workshop photo 2"></div>
-                            <div class="shot"><img src="https://picsum.photos/id/12/400/300" alt="Workshop photo 3"></div>
-                            <div class="shot"><img src="https://picsum.photos/id/13/400/300" alt="Workshop photo 4"></div>
-                            <div class="shot"><img src="https://picsum.photos/id/14/400/300" alt="Workshop photo 5"></div>
+                            <!-- Slots created by JS from library (models + placeholders); multi-row grid, 3:4 cells, fill screen -->
                         </div>
 
                         <button class="arrow arrow--right" type="button" aria-label="Scroll right">
@@ -433,6 +421,89 @@
 
         left?.addEventListener('click', () => scrollByAmount(-1));
         right?.addEventListener('click', () => scrollByAmount(1));
+
+        // Library = models + placeholders; grid 3:4 cells, fill screen with multiple rows
+        function fixPath(path) {
+            if (path && path.startsWith('/assets/')) return './public' + path;
+            return path || '';
+        }
+        function isPlaceholderBasePath(thumbPath) {
+            return thumbPath && /^public\/placeholders\/\d+$/.test(thumbPath);
+        }
+        const EXTS = ['jpg', 'jpeg', 'png', 'webp'];
+        function fetchJson(url) {
+            return fetch(url).then(function(r) { return r.ok ? r.json() : null; }).catch(function() { return null; });
+        }
+        function fillCarouselFromLibrary() {
+            const stripEl = document.getElementById('photoStrip');
+            if (!stripEl) return;
+            const cardEl = stripEl.closest('.card');
+            Promise.all([
+                fetchJson('./public/data/models.json').then(function(d) { return d && d.models ? d.models : []; }).catch(function() { return []; }),
+                fetchJson('./public/placeholders/manifest.json').then(function(d) {
+                    if (!d) return { indices: Array.from({length:29}, function(_,i){ return i+1; }), extensions: {} };
+                    var idx = d.indices && d.indices.length ? d.indices : Array.from({length:29}, function(_,i){ return i+1; });
+                    return { indices: idx, extensions: d.extensions || {} };
+                }).catch(function() { return { indices: Array.from({length:29}, function(_,i){ return i+1; }), extensions: {} }; })
+            ]).then(function(results) {
+                const models = results[0];
+                const manifest = results[1];
+                const indices = manifest.indices;
+                const extensions = manifest.extensions || {};
+                const placeholderItems = indices.map(function(n) {
+                    return { id: 'placeholder-' + n, title: 'Placeholder ' + n, thumbPath: 'public/placeholders/' + n, thumbExt: extensions[String(n)] || null };
+                });
+                const library = models.concat(placeholderItems);
+                if (library.length === 0) return;
+                var gap = 14;
+                var minCell = 140;
+                function countSlots() {
+                    if (!cardEl) return library.length;
+                    var rect = cardEl.getBoundingClientRect();
+                    var pad = 14 * 2 + 16;
+                    var availH = Math.max(120, (rect.height || 200) - pad);
+                    var cols = Math.max(1, Math.floor((rect.width + gap) / (minCell + gap)));
+                    var cellW = (rect.width - (cols - 1) * gap) / cols;
+                    var cellH = cellW * (3 / 4);
+                    var rows = Math.max(2, Math.floor((availH + gap) / (cellH + gap)));
+                    return Math.max(library.length, cols * rows);
+                }
+                var totalSlots = countSlots();
+                stripEl.innerHTML = '';
+                for (var s = 0; s < totalSlots; s++) {
+                    var item = library[s % library.length];
+                    var div = document.createElement('div');
+                    div.className = 'shot';
+                    var img = document.createElement('img');
+                    img.alt = item.title || ('Workshop photo ' + (s + 1));
+                    (function(it) {
+                        if (isPlaceholderBasePath(it.thumbPath)) {
+                            if (it.thumbExt) {
+                                img.src = fixPath(it.thumbPath) + '.' + it.thumbExt;
+                            } else {
+                                var i = 0;
+                                function tryNext() {
+                                    if (i >= EXTS.length) return;
+                                    img.src = fixPath(it.thumbPath) + '.' + EXTS[i++];
+                                    img.onerror = tryNext;
+                                }
+                                img.onload = function() { img.onerror = null; };
+                                tryNext();
+                            }
+                        } else {
+                            img.src = fixPath(it.thumbPath);
+                        }
+                    })(item);
+                    div.appendChild(img);
+                    stripEl.appendChild(div);
+                }
+            });
+        }
+        fillCarouselFromLibrary();
+        window.addEventListener('resize', function() {
+            var stripEl = document.getElementById('photoStrip');
+            if (stripEl && stripEl.children.length > 0) fillCarouselFromLibrary();
+        });
 
         // Mobile: tap left/right to navigate, swipe works natively via overflow-x
         let touchStartX = 0;

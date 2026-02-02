@@ -10,6 +10,7 @@
             "imports": {
                 "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
                 "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js",
+                "three/examples/jsm/loaders/PLYLoader.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/PLYLoader.js",
                 "three/examples/jsm/controls/OrbitControls.js": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js"
             }
         }
@@ -139,6 +140,7 @@
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+        import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
         import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
         // --- Shaders ---
@@ -368,6 +370,7 @@
                 }
             });
 
+            if (allPoints.length === 0) return;
             const geometry = new THREE.BufferGeometry();
             geometry.setAttribute('position', new THREE.Float32BufferAttribute(allPoints, 3));
             geometry.setAttribute('color', new THREE.Float32BufferAttribute(allColors, 3));
@@ -463,47 +466,111 @@
         }
 
         function loadModelByData(modelData) {
-            const loader = new GLTFLoader();
-            const glbPath = fixPath(modelData.glbPath);
+            const modelPath = fixPath(modelData.plyPath || modelData.glbPath);
+            const isPly = modelPath.toLowerCase().endsWith('.ply');
 
-            loader.load(glbPath, (gltf) => {
-                currentModel = gltf.scene;
-                currentModel.updateMatrixWorld(true);
+            if (isPly) {
+                loadPly(modelPath, modelData);
+            } else {
+                loadGlb(modelPath, modelData);
+            }
+        }
 
-                // Center and scale model
-                const box = new THREE.Box3().setFromObject(currentModel);
-                const center = box.getCenter(new THREE.Vector3());
-                const size = box.getSize(new THREE.Vector3());
-                currentModel.position.sub(center);
-                const maxDim = Math.max(size.x, size.y, size.z);
-                const scale = 3 / maxDim;
-                currentModel.scale.multiplyScalar(scale);
-                currentModel.updateMatrixWorld(true);
+        function centerAndScale(obj, scaleTo = 3) {
+            const box = new THREE.Box3().setFromObject(obj);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            obj.position.sub(center);
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scale = scaleTo / maxDim;
+            obj.scale.multiplyScalar(scale);
+            obj.updateMatrixWorld(true);
+        }
 
-                // Add mesh model
-                if (meshModel) {
-                    scene.remove(meshModel);
+        function finishModelSetup(modelData) {
+            baseCameraDistance = camera.position.distanceTo(controls.target);
+            config.zoomLevel = 2.4;
+            document.getElementById('input-zoom').value = '2.4';
+            document.getElementById('label-zoom').innerText = 'Zoom Level: 2.4x';
+            updateZoom();
+            document.getElementById('status').innerText = `Loaded: ${modelData.title} by ${modelData.author}`;
+        }
+
+        function loadPly(path, modelData) {
+            const loader = new PLYLoader();
+            loader.load(path, (geometry) => {
+                geometry.computeVertexNormals();
+                const hasFaces = geometry.index && geometry.index.count > 0;
+
+                if (pointCloud) {
+                    scene.remove(pointCloud);
+                    pointCloud.geometry.dispose();
+                    pointCloud.material.dispose();
                 }
-                meshModel = currentModel.clone();
-                scene.add(meshModel);
+                if (meshModel) scene.remove(meshModel);
 
-                generatePointCloud();
+                if (hasFaces) {
+                    const meshMat = new THREE.MeshStandardMaterial({
+                        vertexColors: geometry.attributes.color ? true : false,
+                        color: geometry.attributes.color ? 0xffffff : 0xcccccc
+                    });
+                    const mesh = new THREE.Mesh(geometry, meshMat);
+                    currentModel = new THREE.Group();
+                    currentModel.add(mesh);
+                    centerAndScale(currentModel);
+                    meshModel = currentModel.clone();
+                    scene.add(meshModel);
+                    generatePointCloud();
+                } else {
+                    currentModel = new THREE.Group();
+                    if (!geometry.attributes.color) {
+                        geometry.setAttribute('color', new THREE.Float32BufferAttribute(new Array(geometry.attributes.position.count * 3).fill(0.9), 3));
+                    }
+                    const plyPointMat = new THREE.ShaderMaterial({
+                        transparent: true,
+                        depthWrite: false,
+                        blending: THREE.AdditiveBlending,
+                        vertexColors: true,
+                        uniforms: {
+                            uTime: { value: 0 },
+                            uPointSize: { value: config.size },
+                            uBrightness: { value: config.brightness },
+                            uDispersion: { value: config.dispersion }
+                        },
+                        vertexShader,
+                        fragmentShader
+                    });
+                    pointCloud = new THREE.Points(geometry, plyPointMat);
+                    centerAndScale(pointCloud);
+                    scene.add(pointCloud);
+                    meshModel = new THREE.Group();
+                    document.getElementById('status').innerText = `Points: ${(geometry.attributes.position.count || 0).toLocaleString()}`;
+                }
 
-                // Set initial visibility: only one mode visible at a time
                 meshModel.visible = (config.viewMode === 'mesh');
                 if (pointCloud) pointCloud.visible = (config.viewMode === 'voxel');
-                
-                // Initialize base camera distance for zoom control
-                const target = controls.target;
-                baseCameraDistance = camera.position.distanceTo(target);
-                
-                // Reset zoom level to 2.4 when new model loads
-                config.zoomLevel = 2.4;
-                document.getElementById('input-zoom').value = '2.4';
-                document.getElementById('label-zoom').innerText = 'Zoom Level: 2.4x';
-                updateZoom();
-                
-                document.getElementById('status').innerText = `Loaded: ${modelData.title} by ${modelData.author}`;
+                finishModelSetup(modelData);
+            }, undefined, (error) => {
+                console.error('Error loading PLY:', error);
+                document.getElementById('status').innerText = 'Load failed: ' + error.message;
+            });
+        }
+
+        function loadGlb(path, modelData) {
+            const loader = new GLTFLoader();
+            loader.load(path, (gltf) => {
+                currentModel = gltf.scene;
+                currentModel.updateMatrixWorld(true);
+                centerAndScale(currentModel);
+
+                if (meshModel) scene.remove(meshModel);
+                meshModel = currentModel.clone();
+                scene.add(meshModel);
+                generatePointCloud();
+
+                meshModel.visible = (config.viewMode === 'mesh');
+                if (pointCloud) pointCloud.visible = (config.viewMode === 'voxel');
+                finishModelSetup(modelData);
             }, undefined, (error) => {
                 console.error('Error loading GLB:', error);
                 document.getElementById('status').innerText = 'Load failed: ' + error.message;

@@ -294,11 +294,29 @@
             return path;
         }
 
+        const PLACEHOLDER_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
+
+        function loadTextureWithFallback(loader, basePath, onLoad) {
+            let i = 0;
+            function tryNext() {
+                if (i >= PLACEHOLDER_EXTENSIONS.length) {
+                    onLoad(null);
+                    return;
+                }
+                const url = basePath + '.' + PLACEHOLDER_EXTENSIONS[i++];
+                loader.load(url, onLoad, undefined, tryNext);
+            }
+            tryNext();
+        }
+
+        function isPlaceholderBasePath(thumbPath) {
+            return thumbPath && /^public\/placeholders\/\d+$/.test(thumbPath);
+        }
+
         async function loadModels() {
             try {
                 const paths = ['./public/data/models.json', 'public/data/models.json', '/public/data/models.json'];
                 let response;
-                
                 for (const path of paths) {
                     try {
                         response = await fetch(path);
@@ -307,19 +325,33 @@
                         continue;
                     }
                 }
-                
                 if (!response || !response.ok) {
                     throw new Error('Failed to load models.json');
                 }
-                
                 const data = await response.json();
                 models = data.models || [];
-                
-                if (models.length === 0) {
-                    console.warn('No models found');
+                let indices = Array.from({ length: 29 }, (_, i) => i + 1);
+                let extensions = {};
+                try {
+                    const man = await fetch('./public/placeholders/manifest.json');
+                    if (man && man.ok) {
+                        const m = await man.json();
+                        if (m && m.indices && m.indices.length) indices = m.indices;
+                        if (m && m.extensions) extensions = m.extensions;
+                    }
+                } catch (e) {}
+                const placeholderItems = indices.map(n => ({
+                    id: 'placeholder-' + n,
+                    title: 'Placeholder ' + n,
+                    thumbPath: 'public/placeholders/' + n,
+                    thumbExt: extensions[String(n)] || null
+                }));
+                const allItems = [...models, ...placeholderItems];
+                if (allItems.length === 0) {
+                    console.warn('No models or placeholders');
                     return;
                 }
-                
+                models = allItems;
                 init();
             } catch (error) {
                 console.error('Error loading models:', error);
@@ -389,9 +421,13 @@
             const loader = new THREE.TextureLoader();
             const radius = 25;
 
+            const dummyTex = new THREE.DataTexture(new Uint8Array([64, 64, 64, 255]), 1, 1);
+            dummyTex.needsUpdate = true;
+
             models.forEach((model, i) => {
-                const phi = Math.acos(-1 + (2 * i) / models.length);
-                const theta = Math.sqrt(models.length * Math.PI) * phi;
+                const n = models.length;
+                const phi = Math.acos(-1 + (2 * i) / n);
+                const theta = Math.sqrt(n * Math.PI) * phi;
 
                 const x = radius * Math.sin(phi) * Math.cos(theta);
                 const y = radius * Math.sin(phi) * Math.sin(theta);
@@ -399,9 +435,11 @@
 
                 const geometry = new THREE.PlaneGeometry(5.2, 3.9);
                 const thumbPath = fixPath(model.thumbPath);
+                const isPlaceholder = isPlaceholderBasePath(model.thumbPath);
+                const placeholderUrl = isPlaceholder && model.thumbExt ? thumbPath + '.' + model.thumbExt : thumbPath;
                 const material = new THREE.ShaderMaterial({
                     uniforms: {
-                        tDiffuse: { value: loader.load(thumbPath) },
+                        tDiffuse: { value: isPlaceholder ? dummyTex : loader.load(placeholderUrl) },
                         pixelSize: { value: 45.0 },
                         colorMix: { value: 0.0 },
                         opacity: { value: 0.55 }
@@ -411,6 +449,18 @@
                     transparent: true,
                     side: THREE.DoubleSide
                 });
+
+                if (isPlaceholder) {
+                    if (model.thumbExt) {
+                        loader.load(placeholderUrl, function(tex) {
+                            if (tex) material.uniforms.tDiffuse.value = tex;
+                        });
+                    } else {
+                        loadTextureWithFallback(loader, thumbPath, function(tex) {
+                            if (tex) material.uniforms.tDiffuse.value = tex;
+                        });
+                    }
+                }
 
                 const plane = new THREE.Mesh(geometry, material);
                 plane.position.set(x, y, z);
@@ -541,12 +591,34 @@
             }
         }
 
+        function setImgWithFallback(imgEl, basePath) {
+            if (!imgEl || !basePath) return;
+            const path = fixPath(basePath);
+            let i = 0;
+            function tryNext() {
+                if (i >= PLACEHOLDER_EXTENSIONS.length) return;
+                imgEl.src = path + '.' + PLACEHOLDER_EXTENSIONS[i++];
+                imgEl.onerror = tryNext;
+            }
+            imgEl.onload = function() { imgEl.onerror = null; };
+            tryNext();
+        }
+
         function showDetails(modelData) {
             currentModelData = modelData;
             const card = document.getElementById('infoCard');
             document.getElementById('cardTitle').innerText = modelData.title;
-            document.getElementById('cardMeta').innerText = `by ${modelData.author} | ID: ${modelData.id}`;
-            document.getElementById('cardImg').src = fixPath(modelData.thumbPath);
+            document.getElementById('cardMeta').innerText = modelData.author ? `by ${modelData.author} | ID: ${modelData.id}` : `ID: ${modelData.id}`;
+            const cardImg = document.getElementById('cardImg');
+            if (isPlaceholderBasePath(modelData.thumbPath)) {
+                if (modelData.thumbExt) {
+                    cardImg.src = fixPath(modelData.thumbPath) + '.' + modelData.thumbExt;
+                } else {
+                    setImgWithFallback(cardImg, modelData.thumbPath);
+                }
+            } else {
+                cardImg.src = fixPath(modelData.thumbPath);
+            }
             document.getElementById('cardDesc').innerText = `Click the button to enter viewer mode and experience the full 3D model.`;
             card.classList.add('active');
         }

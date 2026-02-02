@@ -23,6 +23,14 @@
       "glbPath": "/assets/models/BBLDM.glb",
       "thumbPath": "/assets/thumbs/BBLDM.jpg",
       "tags": []
+    },
+    {
+      "id": "THHJV",
+      "title": "Bridge",
+      "author": "zoe",
+      "glbPath": "/assets/models/THHJV.glb",
+      "thumbPath": "/assets/thumbs/THHJV.jpg",
+      "tags": []
     }
   ]
 }
