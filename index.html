@@ -34,7 +34,7 @@
                         radial-gradient(980px 560px at 22% 26%, rgba(122, 142, 255, 0.62), rgba(122, 142, 255, 0) 60%),
                         radial-gradient(900px 520px at 50% 110%, rgba(6, 7, 24, 0), rgba(6, 7, 24, 1) 55%),
                         linear-gradient(180deg, #1a1544 0%, #090a1b 58%, #060612 100%);
-            overflow-x: hidden;
+            overflow: hidden; /* guarantee the home page never scrolls */
         }
 
         /* Subtle glow wash (matches Figma vibe) */
@@ -65,10 +65,12 @@
         .skip:focus { left: 12px; z-index: 50; }
 
         .shell {
+            height: 100vh;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: stretch;
+            overflow: hidden;
         }
 
         .main {
@@ -78,6 +80,7 @@
             display: flex;
             flex-direction: column;
             min-height: 0;
+            overflow: hidden;
         }
 
         .wrap {
@@ -87,6 +90,7 @@
             display: flex;
             flex-direction: column;
             min-height: 0;
+            overflow: hidden;
         }
 
         .hero {
@@ -171,16 +175,13 @@
             grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             grid-auto-rows: minmax(0, auto);
             gap: 14px;
-            overflow: auto;
+            overflow: hidden; /* no internal scroll; we only render what fits */
             padding-bottom: 4px;
             flex: 1;
             min-height: 0;
             align-content: start;
         }
-
-        .strip::-webkit-scrollbar { height: 10px; }
-        .strip::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.3); }
-        .strip::-webkit-scrollbar-track { background: rgba(0,0,0,0.18); }
+        /* (Scrollbars intentionally disabled; the strip is non-scrollable) */
 
         .shot {
             aspect-ratio: 4 / 3;
@@ -438,6 +439,37 @@
             const stripEl = document.getElementById('photoStrip');
             if (!stripEl) return;
             const cardEl = stripEl.closest('.card');
+            function shuffleInPlace(arr) {
+                for (var i = arr.length - 1; i > 0; i--) {
+                    var j = Math.floor(Math.random() * (i + 1));
+                    var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+                }
+                return arr;
+            }
+            function getGapPx(el) {
+                try {
+                    var cs = window.getComputedStyle(el);
+                    var g = cs && cs.gap ? parseFloat(cs.gap) : 0;
+                    return isFinite(g) && g > 0 ? g : 14;
+                } catch (e) {
+                    return 14;
+                }
+            }
+            function countVisibleSlots() {
+                // Compute based on actual visible strip size so the page never needs vertical scroll.
+                var rect = stripEl.getBoundingClientRect();
+                var w = rect.width || stripEl.clientWidth || 0;
+                var h = rect.height || stripEl.clientHeight || 0;
+                if (w <= 0 || h <= 0) return 0;
+                var gap = getGapPx(stripEl);
+                // Keep in sync with CSS breakpoints (140 desktop, 100 mobile).
+                var minCell = (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) ? 100 : 140;
+                var cols = Math.max(1, Math.floor((w + gap) / (minCell + gap)));
+                var cellW = (w - (cols - 1) * gap) / cols;
+                var cellH = cellW * (3 / 4); // aspect-ratio: 4/3 (w/h), so h = w * 3/4
+                var rows = Math.max(1, Math.floor((h + gap) / (cellH + gap)));
+                return Math.max(1, cols * rows);
+            }
             Promise.all([
                 fetchJson('./public/data/models.json').then(function(d) { return d && d.models ? d.models : []; }).catch(function() { return []; }),
                 fetchJson('./public/placeholders/manifest.json').then(function(d) {
@@ -453,22 +485,12 @@
                 const placeholderItems = indices.map(function(n) {
                     return { id: 'placeholder-' + n, title: 'Placeholder ' + n, thumbPath: 'public/placeholders/' + n, thumbExt: extensions[String(n)] || null };
                 });
-                const library = models.concat(placeholderItems);
+                // Shuffle each page load so limited slots still cycle through content over time.
+                const library = shuffleInPlace(models.concat(placeholderItems).slice());
                 if (library.length === 0) return;
-                var gap = 14;
-                var minCell = 140;
-                function countSlots() {
-                    if (!cardEl) return library.length;
-                    var rect = cardEl.getBoundingClientRect();
-                    var pad = 14 * 2 + 16;
-                    var availH = Math.max(120, (rect.height || 200) - pad);
-                    var cols = Math.max(1, Math.floor((rect.width + gap) / (minCell + gap)));
-                    var cellW = (rect.width - (cols - 1) * gap) / cols;
-                    var cellH = cellW * (3 / 4);
-                    var rows = Math.max(2, Math.floor((availH + gap) / (cellH + gap)));
-                    return Math.max(library.length, cols * rows);
-                }
-                var totalSlots = countSlots();
+                // Render only what fits inside the visible strip (no vertical scroll on the home page).
+                var totalSlots = countVisibleSlots();
+                if (!totalSlots || totalSlots < 1) totalSlots = Math.min(library.length, 12);
                 stripEl.innerHTML = '';
                 for (var s = 0; s < totalSlots; s++) {
                     var item = library[s % library.length];
