@@ -199,41 +199,7 @@
             filter: saturate(0.98) contrast(1.02);
         }
 
-        .arrow {
-            position: absolute;
-            top: 50%;
-            transform: translateY(12px);
-            width: 38px;
-            height: 38px;
-            background: rgba(0,0,0,0.35);
-            border: 1px solid rgba(0,0,0,0.2);
-            backdrop-filter: blur(10px);
-            display: grid;
-            place-items: center;
-            cursor: pointer;
-            transition: transform 140ms ease, background 140ms ease;
-        }
-
-        .arrow:hover { background: rgba(0,0,0,0.55); transform: translateY(12px) scale(1.05); }
-        .arrow:focus-visible { outline: 2px solid rgba(255,255,255,0.7); outline-offset: 3px; }
-
-        .arrow--left { left: 10px; }
-        .arrow--right { right: 10px; }
-
-        .tri {
-            width: 0;
-            height: 0;
-            border-top: 7px solid transparent;
-            border-bottom: 7px solid transparent;
-        }
-        .arrow--left .tri {
-            border-right: 10px solid rgba(255,255,255,0.92);
-            margin-left: -2px;
-        }
-        .arrow--right .tri {
-            border-left: 10px solid rgba(255,255,255,0.92);
-            margin-right: -2px;
-        }
+        /* No carousel arrows on home page */
 
         .cta-row {
             display: flex;
@@ -333,7 +299,6 @@
         }
         @media (max-width: 640px) {
             .main { padding-top: 20px; padding-left: 12px; padding-right: 12px; }
-            .arrow { display: none; }
         }
     </style>
 </head>
@@ -364,17 +329,9 @@
                     </div>
 
                     <div class="carousel" aria-label="Workshop photos">
-                        <button class="arrow arrow--left" type="button" aria-label="Scroll left">
-                            <span class="tri" aria-hidden="true"></span>
-                        </button>
-
                         <div class="strip" id="photoStrip">
                             <!-- Slots created by JS from library (models + placeholders); multi-row grid, 3:4 cells, fill screen -->
                         </div>
-
-                        <button class="arrow arrow--right" type="button" aria-label="Scroll right">
-                            <span class="tri" aria-hidden="true"></span>
-                        </button>
                     </div>
 
                     <div class="cta-row">
@@ -409,19 +366,7 @@
             }
         });
 
-        // Simple strip scrolling (matches arrow affordance in the Figma).
-        const strip = document.getElementById('photoStrip');
-        const left = document.querySelector('.arrow--left');
-        const right = document.querySelector('.arrow--right');
-
-        function scrollByAmount(dir) {
-            if (!strip) return;
-            const amount = Math.max(240, Math.floor(strip.clientWidth * 0.72));
-            strip.scrollBy({ left: dir * amount, behavior: 'smooth' });
-        }
-
-        left?.addEventListener('click', () => scrollByAmount(-1));
-        right?.addEventListener('click', () => scrollByAmount(1));
+        // No arrow navigation on home page.
 
         // Library = models + placeholders; grid 3:4 cells, fill screen with multiple rows
         function fixPath(path) {
@@ -456,16 +401,37 @@
                 }
             }
             function countVisibleSlots() {
-                // Compute based on actual visible strip size so the page never needs vertical scroll.
+                // Add whole rows downward until the grid touches the bottom,
+                // and ALWAYS fill the last row (i.e. totalSlots is a multiple of actual columns).
                 var rect = stripEl.getBoundingClientRect();
                 var w = rect.width || stripEl.clientWidth || 0;
                 var h = rect.height || stripEl.clientHeight || 0;
                 if (w <= 0 || h <= 0) return 0;
+
                 var gap = getGapPx(stripEl);
-                // Keep in sync with CSS breakpoints (140 desktop, 100 mobile).
-                var minCell = (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) ? 100 : 140;
-                var cols = Math.max(1, Math.floor((w + gap) / (minCell + gap)));
-                var cellW = (w - (cols - 1) * gap) / cols;
+                var cs = null;
+                try { cs = window.getComputedStyle(stripEl); } catch (e) {}
+
+                // Use the browser-resolved gridTemplateColumns for the real column count (auto-fill can differ from our estimate).
+                var cols = 0;
+                var colW = 0;
+                if (cs && cs.gridTemplateColumns) {
+                    var colsStr = (cs.gridTemplateColumns || '').trim();
+                    if (colsStr) {
+                        var parts = colsStr.split(/\s+/).filter(Boolean);
+                        cols = parts.length;
+                        // Most of the time these are px values; fall back if parsing fails.
+                        var first = parts[0] || '';
+                        var num = parseFloat(first);
+                        if (isFinite(num) && num > 0) colW = num;
+                    }
+                }
+                if (!cols || cols < 1) {
+                    // Fallback estimate (should be rare).
+                    var minCell = (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) ? 100 : 140;
+                    cols = Math.max(1, Math.floor((w + gap) / (minCell + gap)));
+                }
+                var cellW = colW > 0 ? colW : (w - (cols - 1) * gap) / cols;
                 var cellH = cellW * (3 / 4); // aspect-ratio: 4/3 (w/h), so h = w * 3/4
                 var rows = Math.max(1, Math.floor((h + gap) / (cellH + gap)));
                 return Math.max(1, cols * rows);
@@ -527,26 +493,7 @@
             if (stripEl && stripEl.children.length > 0) fillCarouselFromLibrary();
         });
 
-        // Mobile: tap left/right to navigate, swipe works natively via overflow-x
-        let touchStartX = 0;
-        let touchStartY = 0;
-        strip?.addEventListener('touchstart', (e) => {
-            touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
-        }, { passive: true });
-        strip?.addEventListener('touchend', (e) => {
-            const tx = e.changedTouches[0].clientX;
-            const ty = e.changedTouches[0].clientY;
-            const dx = tx - touchStartX;
-            const dy = ty - touchStartY;
-            const moved = Math.sqrt(dx * dx + dy * dy);
-            if (moved < 15) {
-                const rect = strip.getBoundingClientRect();
-                const tapX = tx - rect.left;
-                if (tapX >= 0 && tapX < rect.width * 0.33) scrollByAmount(-1);
-                else if (tapX > rect.width * 0.67 && tapX <= rect.width) scrollByAmount(1);
-            }
-        }, { passive: true });
+        // No touch navigation on home page.
     </script>
 </body>
 </html>

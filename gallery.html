@@ -423,6 +423,9 @@
 
             const dummyTex = new THREE.DataTexture(new Uint8Array([64, 64, 64, 255]), 1, 1);
             dummyTex.needsUpdate = true;
+            // Pure black texture for "pixel" items (non-placeholder thumbs)
+            const blackTex = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1);
+            blackTex.needsUpdate = true;
 
             models.forEach((model, i) => {
                 const n = models.length;
@@ -437,35 +440,31 @@
                 const thumbPath = fixPath(model.thumbPath);
                 const isPlaceholder = isPlaceholderBasePath(model.thumbPath);
                 const placeholderUrl = isPlaceholder && model.thumbExt ? thumbPath + '.' + model.thumbExt : thumbPath;
-                // Spec: placeholders show ONLY placeholder; pixels render as translucent black.
-                // - Placeholder planes: show the placeholder image directly (no pixel shader).
-                // - Non-placeholder (real model thumbs): render as semi-transparent black (no image).
-                let material;
+                // Keep the original pixel shader + hover reveal behavior.
+                // Only change: non-placeholder thumbs sample from a black texture.
+                const material = new THREE.ShaderMaterial({
+                    uniforms: {
+                        tDiffuse: { value: isPlaceholder ? dummyTex : blackTex },
+                        pixelSize: { value: 45.0 },
+                        colorMix: { value: 0.0 },
+                        opacity: { value: 0.55 }
+                    },
+                    vertexShader: pixelShader.vertexShader,
+                    fragmentShader: pixelShader.fragmentShader,
+                    transparent: true,
+                    side: THREE.DoubleSide
+                });
+
                 if (isPlaceholder) {
-                    material = new THREE.MeshBasicMaterial({
-                        map: dummyTex,
-                        transparent: true,
-                        opacity: 1.0,
-                        side: THREE.DoubleSide
-                    });
                     if (model.thumbExt) {
                         loader.load(placeholderUrl, function(tex) {
-                            if (tex) material.map = tex;
-                            material.needsUpdate = true;
+                            if (tex) material.uniforms.tDiffuse.value = tex;
                         });
                     } else {
                         loadTextureWithFallback(loader, thumbPath, function(tex) {
-                            if (tex) material.map = tex;
-                            material.needsUpdate = true;
+                            if (tex) material.uniforms.tDiffuse.value = tex;
                         });
                     }
-                } else {
-                    material = new THREE.MeshBasicMaterial({
-                        color: 0x000000,
-                        transparent: true,
-                        opacity: 0.55,
-                        side: THREE.DoubleSide
-                    });
                 }
 
                 const plane = new THREE.Mesh(geometry, material);
@@ -661,11 +660,16 @@
                 const dir = plane.position.clone().normalize();
                 plane.position.copy(plane.userData.originalPos).add(dir.multiplyScalar(offset));
 
-                // Keep a subtle hover scale only (no pixel reveal), and avoid touching uniforms for non-shader materials.
                 if (plane === hoveredObj) {
-                    plane.scale.lerp(new THREE.Vector3(1.12, 1.12, 1.12), 0.12);
+                    plane.material.uniforms.pixelSize.value = THREE.MathUtils.lerp(plane.material.uniforms.pixelSize.value, 1.0, 0.12);
+                    plane.material.uniforms.colorMix.value = THREE.MathUtils.lerp(plane.material.uniforms.colorMix.value, 1.0, 0.12);
+                    plane.material.uniforms.opacity.value = THREE.MathUtils.lerp(plane.material.uniforms.opacity.value, 1.0, 0.12);
+                    plane.scale.lerp(new THREE.Vector3(1.2, 1.2, 1.2), 0.12);
                 } else {
-                    plane.scale.lerp(new THREE.Vector3(1, 1, 1), 0.10);
+                    plane.material.uniforms.pixelSize.value = THREE.MathUtils.lerp(plane.material.uniforms.pixelSize.value, 45.0, 0.05);
+                    plane.material.uniforms.colorMix.value = THREE.MathUtils.lerp(plane.material.uniforms.colorMix.value, 0.0, 0.05);
+                    plane.material.uniforms.opacity.value = THREE.MathUtils.lerp(plane.material.uniforms.opacity.value, 0.55, 0.05);
+                    plane.scale.lerp(new THREE.Vector3(1, 1, 1), 0.08);
                 }
             });
 
